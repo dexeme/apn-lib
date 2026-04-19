@@ -1,0 +1,17 @@
+# -*- python -*-
+
+from libcpp.vector cimport vector as std_vector
+from libcpp.map cimport map as std_map
+from libcpp.string cimport string
+from libcpp cimport bool
+from libc.stdint cimport uint64_t as BinWord
+from libc.stdint cimport int64_t, uint8_t
+from libcpp.utility cimport pair
+from libc.stdlib cimport free
+
+ctypedef std_vector[BinWord] FpWord
+ctypedef std_vector[uint8_t] Bytearray
+ctypedef std_vector[BinWord] Lut
+ctypedef int64_t cpp_Integer
+
+from libcpp.memory cimport unique_ptr, make_unique

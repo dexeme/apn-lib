@@ -1,0 +1,76 @@
+#!/usr/bin/env sage
+
+from sage.all import *
+
+from sboxU import *
+
+
+n = 8
+
+def pretty_bin(x):
+    result = ""
+    while x != 0:
+        result = str(x & 1) + result
+        x = x >> 1
+    while len(result) <= n:
+        result = "0" + result
+    return result
+
+
+if __name__ == "__main__":
+    canonical = [1 << i for i in range(0, n)]
+    entries = []
+    for t in range(0, 15):
+        mask = randint(0, 2**n-1)
+        if hamming_weight(mask) < 4:
+            x = linear_combination(canonical, mask)
+            print("{} {:3d} {:3d}".format(
+                pretty_bin(x),
+                lsb(x),
+                msb(x)))
+            entries.append(x)
+    print(pretty_bin(xor(entries)) + " (tot)")
+    print(pretty_bin(xor(entries, sum(1 << i for i in range(0, n)))) + " (not tot)")
+            
+    tot_sum  = zero_F2AffineMap(n)
+    tot_prod = identity_F2AffineMap(n)
+    for t in range(0, 15):
+        masks = [randint(1, 2**n-1) for i in range(0, randint(n-1, n+1))]
+        print(masks)
+        L = get_F2AffineMap(masks)
+        x = [randint(0, 2**n) for u in range(0, 15)]
+        img = [L(x_i) for x_i in x]
+        print(img)
+        print([linear_combination(masks, x_i) for x_i in x])
+        print(L.get_input_length(), rank_of_vector_set(img), L.rank())
+        s = get_sbox(L)
+        print(get_F2AffineMap(s))
+        print(L)
+        pprint(s)
+        if L.get_input_length() == n and n == L.rank():
+            tot_prod = L * tot_prod
+            tot_sum = L + tot_sum
+            L_inv = L.inverse()
+            print(L_inv)
+            print([(L_inv * L)(x) for x in range(0, 2**n)])
+        print("")
+    print("\ntot_prod", tot_prod)
+    print("\ntot_sum", tot_sum)
+
+    ## Testing to_bin and from_bin
+    is_correct=True
+    for _ in range(10):
+        x=randint(0,2**64-1)
+        if from_bin(to_bin(x,64))!=x:
+            is_correct=False
+    if is_correct:
+        print("to_bin and from_bin seem to work")
+    else :
+        print("Error in to_bin or in from_bin")
+
+    # testing diagonal maps
+
+    print(block_diagonal_F2AffineMap(
+        identity_F2AffineMap(3),
+        identity_F2AffineMap(4),
+    ))

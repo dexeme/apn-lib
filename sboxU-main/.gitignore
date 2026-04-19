@@ -1,0 +1,10 @@
+*~
+*#
+*cython_functions.cpp
+*.so
+*__pycache__
+*docs/source/sboxUv2*
+.vscode*
+*.egg-info
+build
+.nfs*
