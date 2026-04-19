@@ -1,0 +1,755 @@
+```@meta
+CurrentModule = Nemo
+CollapsedDocStrings = true
+DocTestSetup = Nemo.doctestsetup()
+```
+
+# [Fixed precision complex balls](@id acb_field_section)
+
+Arbitrary precision complex ball arithmetic is supplied by Arb which provides a
+ball representation which tracks error bounds rigorously. Complex numbers are 
+represented in rectangular form $a+bi$ where $a,b$ are `ArbFieldElem` balls.
+
+The Arb complex field is constructed using the `AcbField` constructor. This
+constructs the parent object for the Arb complex field.
+
+The types of complex boxes in Nemo are given in the following table, along with
+the libraries that provide them and the associated types of the parent objects.
+
+ Library | Field                | Element type   | Parent type
+---------|----------------------|----------------|--------------
+Arb      | $\mathbb{C}$ (boxes) | `AcbFieldElem` | `AcbField`
+
+All the complex field types belong to the `Field` abstract type and the types of
+elements in this field, i.e. complex boxes in this case, belong to the
+`FieldElem` abstract type.
+
+## Complex ball functionality
+
+The complex balls in Nemo provide all the field functionality defined by AbstractAlgebra:.
+
+<https://nemocas.github.io/AbstractAlgebra.jl/stable/field>
+
+Below, we document the additional functionality provided for complex balls.
+
+### Complex field constructors
+
+In order to construct complex boxes in Nemo, one must first construct the Arb
+complex field itself. This is accomplished with the following constructor.
+
+```
+AcbField(prec::Int)
+```
+
+Return the Arb complex field with precision in bits `prec` used for operations
+on interval midpoints. The precision used for interval radii is a fixed
+implementation-defined constant (30 bits).
+
+Here is an example of creating an Arb complex field and using the resulting
+parent object to coerce values into the resulting field.
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(64)
+Complex Field with 64 bits of precision and error bounds
+
+julia> a = CC("0.25")
+0.25000000000000000000
+
+julia> b = CC("0.1")
+[0.10000000000000000000 +/- 2.72e-21]
+
+julia> c = CC(0.5)
+0.50000000000000000000
+
+julia> d = CC(12)
+12.000000000000000000
+```
+
+Note that whilst one can coerce double precision floating point values into an
+Arb complex field, unless those values can be represented exactly in double
+precision the resulting ball can't be any more precise than the double
+precision supplied.
+
+If instead, values can be represented precisely using decimal arithmetic then
+one can supply them to Arb using a string. In this case, Arb will store them to
+the precision specified when creating the Arb complex field.
+
+If the values can be stored precisely as a binary floating point number, Arb
+will store the values exactly. See the function `is_exact` below for more
+information.
+
+### Constructors
+
+```@docs
+onei(::AcbField)
+```
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(64)
+Complex Field with 64 bits of precision and error bounds
+
+julia> c = onei(CC)
+1.0000000000000000000*im
+```
+
+## Basic functionality
+
+The following basic functionality is provided by the default Arb complex field
+implementation in Nemo, to support construction of generic rings over complex
+fields. Any custom complex field implementation in Nemo should provide analogues
+of these functions along with the usual arithmetic operations.
+
+```
+parent_type(::Type{AcbFieldElem})
+```
+
+Gives the type of the parent object of an Arb complex field element.
+
+```
+elem_type(R::AcbField)
+```
+
+Given the parent object for an Arb complex field, return the type of elements
+of the field.
+
+```
+mul!(c::AcbFieldElem, a::AcbFieldElem, b::AcbFieldElem)
+```
+
+Multiply $a$ by $b$ and set the existing Arb complex field element $c$ to the
+result. This function is provided for performance reasons as it saves
+allocating a new object for the result and eliminates associated garbage
+collection.
+
+```
+deepcopy(a::AcbFieldElem)
+```
+
+Return a copy of the Arb complex field element $a$, recursively copying the
+internal data. Arb complex field elements are mutable in Nemo so a shallow
+copy is not sufficient.
+
+Given the parent object `R` for an Arb complex field, the following coercion
+functions are provided to coerce various elements into the Arb complex field.
+Developers provide these by overloading the `call` operator for the complex
+field parent objects.
+
+```
+R()
+```
+
+Coerce zero into the Arb complex field.
+
+```
+R(n::Integer)
+R(f::ZZRingElem)
+R(q::QQFieldElem)
+```
+
+Coerce an integer or rational value into the Arb complex field.
+
+```
+R(f::Float64)
+R(f::BigFloat)
+```
+
+Coerce the given floating point number into the Arb complex field.
+
+```
+R(f::AbstractString)
+R(f::AbstractString, g::AbstractString)
+```
+
+Coerce the decimal number, given as a string, into the Arb complex field. In
+each case $f$ is the real part and $g$ is the imaginary part.
+
+```
+R(f::ArbFieldElem)
+```
+
+Coerce the given Arb real ball into the Arb complex field.
+
+```
+R(f::AcbFieldElem)
+```
+
+Take an Arb complex field element that is already in an Arb field and simply
+return it. A copy of the original is not made.
+
+Here are some examples of coercing elements into the Arb complex field.
+
+```jldoctest
+julia> RR = ArbField(64)
+Real Field with 64 bits of precision and error bounds
+
+julia> CC = AcbField(64)
+Complex Field with 64 bits of precision and error bounds
+
+julia> a = CC(3)
+3.0000000000000000000
+
+julia> b = CC(QQ(2,3))
+[0.6666666666666666666 +/- 8.48e-20]
+
+julia> c = CC("3 +/- 0.0001")
+[3.000 +/- 1.01e-4]
+
+julia> d = CC("-1.24e+12345")
+[-1.2400000000000000000e+12345 +/- 4.16e+12325]
+
+julia> f = CC("nan +/- inf")
+nan
+
+julia> g = CC(RR(3))
+3.0000000000000000000
+```
+
+In addition to the above, developers of custom complex field types must ensure
+that they provide the equivalent of the function `base_ring(R::AcbField)`
+which should return `Union{}`. In addition to this they should ensure that
+each complex field element contains a field `parent` specifying the parent
+object of the complex field element, or at least supply the equivalent of the
+function `parent(a::AcbFieldElem)` to return the parent object of a complex field
+element.
+
+### Basic manipulation
+
+```@docs
+isfinite(::AcbFieldElem)
+```
+
+```@docs
+is_exact(::AcbFieldElem)
+```
+
+```@docs
+isinteger(::AcbFieldElem)
+```
+
+```@docs
+accuracy_bits(::AcbFieldElem)
+```
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(64)
+Complex Field with 64 bits of precision and error bounds
+
+julia> a = CC("1.2 +/- 0.001")
+[1.20 +/- 1.01e-3]
+
+julia> b = CC(3)
+3.0000000000000000000
+
+julia> isreal(a)
+true
+
+julia> isfinite(b)
+true
+
+julia> isinteger(b)
+true
+
+julia> c = real(a)
+[1.20 +/- 1.01e-3]
+
+julia> d = imag(b)
+0
+
+julia> f = accuracy_bits(a)
+9
+
+```
+
+### Containment
+
+It is often necessary to determine whether a given exact value or box is
+contained in a given complex box or whether two boxes overlap. The following
+functions are provided for this purpose.
+
+```@docs
+overlaps(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+contains(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+contains(::AcbFieldElem, ::Integer)
+contains(::AcbFieldElem, ::ZZRingElem)
+contains(::AcbFieldElem, ::QQFieldElem)
+```
+
+The following functions are also provided for determining if a box intersects
+a certain part of the complex number plane.
+
+```@docs
+contains_zero(::AcbFieldElem)
+```
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(64)
+Complex Field with 64 bits of precision and error bounds
+
+julia> x = CC("1 +/- 0.001")
+[1.00 +/- 1.01e-3]
+
+julia> y = CC("3")
+3.0000000000000000000
+
+julia> overlaps(x, y)
+false
+
+julia> contains(x, y)
+false
+
+julia> contains(y, 3)
+true
+
+julia> contains(x, ZZ(1)//2)
+false
+
+julia> contains_zero(x)
+false
+```
+
+### Comparison
+
+Nemo provides a full range of comparison operations for Arb complex boxes. 
+
+In addition to the standard comparisons, we introduce an exact equality. This is
+distinct from arithmetic equality implemented by `==`, which merely compares up to the
+minimum of the precisions of its operands.
+
+```@docs
+isequal(::AcbFieldElem, ::AcbFieldElem)
+```
+
+A full range of ad hoc comparison operators is provided. These are implemented directly
+in Julia, but we document them as though only `==` were provided.
+
+Function                     |
+-----------------------------|
+`==(x::AcbFieldElem, y::Integer)`     |
+`==(x::Integer, y::AcbFieldElem)`     |
+`==(x::AcbFieldElem, y::ZZRingElem)`        |
+`==(x::ZZRingElem, y::AcbFieldElem)`        |
+`==(x::ArbFieldElem, y::ZZRingElem)`        |
+`==(x::ZZRingElem, y::ArbFieldElem)`        |
+`==(x::AcbFieldElem, y::Float64)`     |
+`==(x::Float64, y::AcbFieldElem)`     |
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(64)
+Complex Field with 64 bits of precision and error bounds
+
+julia> x = CC("1 +/- 0.001")
+[1.00 +/- 1.01e-3]
+
+julia> y = CC("3")
+3.0000000000000000000
+
+julia> z = CC("4")
+4.0000000000000000000
+
+julia> isequal(x, deepcopy(x))
+true
+
+julia> x == 3
+false
+
+julia> ZZ(3) == z
+false
+
+julia> x != 1.23
+true
+```
+
+### Absolute value
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(64)
+Complex Field with 64 bits of precision and error bounds
+
+julia> x = CC("-1 +/- 0.001")
+[-1.00 +/- 1.01e-3]
+
+julia> a = abs(x)
+[1.00 +/- 1.01e-3]
+```
+
+### Shifting
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(64)
+Complex Field with 64 bits of precision and error bounds
+
+julia> x = CC("-3 +/- 0.001")
+[-3.00 +/- 1.01e-3]
+
+julia> a = ldexp(x, 23)
+[-2.52e+7 +/- 4.26e+4]
+
+julia> b = ldexp(x, -ZZ(15))
+[-9.16e-5 +/- 7.78e-8]
+```
+
+### Miscellaneous operations
+
+```@docs
+trim(::AcbFieldElem)
+```
+
+```@docs
+unique_integer(::AcbFieldElem)
+```
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(64)
+Complex Field with 64 bits of precision and error bounds
+
+julia> x = CC("-3 +/- 0.001", "0.1")
+[-3.00 +/- 1.01e-3] + [0.10000000000000000000 +/- 2.72e-21]*im
+
+julia> a = trim(x)
+[-3.00 +/- 1.01e-3] + [0.10000000000000000000 +/- 2.72e-21]*im
+
+julia> b, c = unique_integer(x)
+(false, 0)
+
+julia> d = conj(x)
+[-3.00 +/- 1.01e-3] + [-0.10000000000000000000 +/- 2.72e-21]*im
+
+julia> f = angle(x)
+[3.1083 +/- 3.95e-5]
+```
+
+### Constants
+
+```@docs
+const_pi(::AcbField)
+```
+
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(200)
+Complex Field with 200 bits of precision and error bounds
+
+julia> a = const_pi(CC)
+[3.14159265358979323846264338327950288419716939937510582097494 +/- 5.73e-60]
+```
+
+### Mathematical and special functions
+
+```@docs
+rsqrt(::AcbFieldElem)
+```
+
+```@docs
+cispi(::AcbFieldElem)
+```
+
+```@docs
+root_of_unity(::AcbField, k::Int)
+```
+
+```@docs
+log_sinpi(::AcbFieldElem)
+```
+
+```@docs
+gamma(::AcbFieldElem)
+```
+
+```@docs
+lgamma(::AcbFieldElem)
+```
+
+```@docs
+rgamma(::AcbFieldElem)
+```
+
+```@docs
+digamma(::AcbFieldElem)
+```
+
+```@docs
+zeta(::AcbFieldElem)
+```
+
+```@docs
+barnes_g(::AcbFieldElem)
+```
+
+```@docs
+log_barnes_g(::AcbFieldElem)
+```
+
+```@docs
+erf(::AcbFieldElem)
+```
+
+```@docs
+erfi(::AcbFieldElem)
+```
+
+```@docs
+exp_integral_ei(::AcbFieldElem)
+```
+
+```@docs
+sin_integral(::AcbFieldElem)
+```
+
+```@docs
+cos_integral(::AcbFieldElem)
+```
+
+```@docs
+sinh_integral(::AcbFieldElem)
+```
+
+```@docs
+cosh_integral(::AcbFieldElem)
+```
+
+```@docs
+dedekind_eta(::AcbFieldElem)
+```
+
+```@docs
+modular_weber_f(::AcbFieldElem)
+```
+
+```@docs
+modular_weber_f1(::AcbFieldElem)
+```
+
+```@docs
+modular_weber_f2(::AcbFieldElem)
+```
+
+```@docs
+j_invariant(::AcbFieldElem)
+```
+
+```@docs
+modular_lambda(::AcbFieldElem)
+```
+
+```@docs
+modular_delta(::AcbFieldElem)
+```
+
+```@docs
+eisenstein_g(::Int, ::AcbFieldElem)
+```
+
+```@docs
+elliptic_k(::AcbFieldElem)
+```
+
+```@docs
+elliptic_e(::AcbFieldElem)
+```
+
+```@docs
+agm(::AcbFieldElem)
+agm(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+polygamma(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+zeta(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+rising_factorial(::AcbFieldElem, ::Int)
+```
+
+```@docs
+rising_factorial2(::AcbFieldElem, ::Int)
+```
+
+```@docs
+polylog(::Union{AcbFieldElem,Int}, ::AcbFieldElem)
+```
+
+```@docs
+log_integral(::AcbFieldElem)
+```
+
+```@docs
+log_integral_offset(::AcbFieldElem)
+```
+
+```@docs
+exp_integral_e(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+gamma(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+gamma_regularized(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+gamma_lower(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+gamma_lower_regularized(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+airy_ai(::AcbFieldElem)
+```
+
+```@docs
+airy_ai_prime(::AcbFieldElem)
+```
+
+```@docs
+airy_bi(::AcbFieldElem)
+```
+
+```@docs
+airy_bi_prime(::AcbFieldElem)
+```
+
+```@docs
+bessel_j(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+bessel_y(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+bessel_i(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+bessel_k(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+hypergeometric_1f1(::AcbFieldElem, ::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+hypergeometric_1f1_regularized(::AcbFieldElem, ::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+hypergeometric_u(::AcbFieldElem, ::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+hypergeometric_2f1(::AcbFieldElem, ::AcbFieldElem, ::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+jacobi_theta(::AcbFieldElem, ::AcbFieldElem)
+```
+
+```@docs
+weierstrass_p(::AcbFieldElem, ::AcbFieldElem)
+```
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(64)
+Complex Field with 64 bits of precision and error bounds
+
+julia> s = CC(1, 2)
+1.0000000000000000000 + 2.0000000000000000000*im
+
+julia> z = CC("1.23", "3.45")
+[1.2300000000000000000 +/- 3.49e-20] + [3.4500000000000000000 +/- 8.70e-20]*im
+
+julia> a = sin(z)^2 + cos(z)^2
+[1.00000000000000 +/- 2.76e-16] + [+/- 2.11e-16]*im
+
+julia> b = zeta(z)
+[0.685803329024164062 +/- 2.05e-19] + [-0.038574782404586856 +/- 2.71e-19]*im
+
+julia> c = bessel_j(s, z)
+[0.63189634741402481 +/- 4.04e-18] + [0.00970090757446076 +/- 3.79e-18]*im
+
+julia> d = hypergeometric_1f1(s, s+1, z)
+[-1.3355297330012291 +/- 4.42e-17] + [-0.1715020340928697 +/- 3.61e-17]*im
+```
+
+### Linear dependence
+
+```@docs
+lindep(::Vector{AcbFieldElem}, n::Int)
+```
+
+```@docs
+lindep(A::Matrix{AcbFieldElem}, bits::Int)
+```
+
+**Examples**
+
+```jldoctest
+julia> CC = AcbField(128)
+Complex Field with 128 bits of precision and error bounds
+
+julia> # These are two of the roots of x^5 + 3x + 1
+
+julia> a = CC(1.0050669478588622428791051888364775253, -0.93725915669289182697903585868761513585)
+[1.00506694785886230292248910700436681509 +/- 1.80e-40] - [0.937259156692891837181491609953809529543 +/- 7.71e-41]*im
+
+julia> b = CC(-0.33198902958450931620250069492231652319)
+-[0.331989029584509320880414406929048709571 +/- 3.62e-40]
+
+julia> V1 = [CC(1), a, a^2, a^3, a^4, a^5]; # We recover the polynomial from one root....
+
+julia> W = lindep(V1, 20)
+6-element Vector{ZZRingElem}:
+ 1
+ 3
+ 0
+ 0
+ 0
+ 1
+
+julia> V2 = [CC(1), b, b^2, b^3, b^4, b^5]; # ...or from two
+
+julia> Vs = [transpose(V1); transpose(V2)];
+
+julia> X = lindep(Vs, 20)
+6-element Vector{ZZRingElem}:
+ 1
+ 3
+ 0
+ 0
+ 0
+ 1
+```
