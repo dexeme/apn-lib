@@ -140,7 +140,7 @@ function filter_permutation_tuples(pairs)
     return valid_pairs
 end
 
-function gen_permutation_tuples(n::Int; verbose::Bool = false)
+function gen_permutation_tuples(n::Int)
     rcfs = get_rcfs(n)
 
     prime_order_rcfs = filter(has_prime_multiplicative_order, rcfs)
@@ -149,5 +149,5 @@ function gen_permutation_tuples(n::Int; verbose::Bool = false)
 
     representatives = remove_extended_power_similar_pairs(candidates)
 
-    return filter_permutation_tuples(representatives; verbose = verbose)
+    return filter_permutation_tuples(representatives)
 end

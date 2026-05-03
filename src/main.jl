@@ -5,7 +5,7 @@ function generate_for_n(n::Int)
 
     elapsed = @elapsed begin
         tuples = gen_permutation_tuples(n)
-        generate_tuples_file(tuples, "AllTuples$n.h")
+        generate_tuples_file(tuples, "tuples/AllTuples$n.h")
     end
 
     println("Generated AllTuples$n.h with $(length(tuples)) tuples")

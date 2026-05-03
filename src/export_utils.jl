@@ -34,7 +34,7 @@ function write_c_array(file, rows)
     write(file, "};\n")
 end
 
-function generate_tuples_file(tuples, filename::String = "AllTuples.h")
+function generate_tuples_file(tuples, filename::String = "tuples/AllTuples.h")
     rows = tuples_to_sbox_rows(tuples)
 
     open(filename, "w") do file
