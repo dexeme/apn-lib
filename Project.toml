@@ -1,0 +1,7 @@
+name = "APNLib"
+uuid = "fadce40b-075c-4734-8c00-3593a82e177f"
+authors = ["Tiago"]
+version = "0.1.0"
+
+[deps]
+Nemo = "2edaba10-b0f1-5616-af89-8c11ac63239a"
