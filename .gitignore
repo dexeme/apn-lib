@@ -6,3 +6,6 @@ __pycache__
 julia-playground
 docs
 apagar
+.pytest_cache
+.vscode
+*.iml
