@@ -1,3 +1,7 @@
+# Run Tests
+
+julia --project=. -e 'push!(LOAD_PATH, pwd()); include("test/runtests.jl")'
+
 # Generate Tuples
 
 julia --project=.

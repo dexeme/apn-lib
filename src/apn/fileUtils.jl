@@ -137,7 +137,7 @@ function extract_matrices_from_tuple_lut(tuple_lut::AbstractVector{<:Integer}, n
     return A, B
 end
 
-function extrair_matrizes(tuple_lut::AbstractVector{<:Integer}, n::Int)
+function extract_matrices(tuple_lut::AbstractVector{<:Integer}, n::Int)
     return extract_matrices_from_tuple_lut(tuple_lut, n)
 end
 

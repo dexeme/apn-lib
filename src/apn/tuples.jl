@@ -45,7 +45,7 @@ function fixed_space_dimension_gf2(M_power::FqMatrix)::Int
     return nullity_gf2(M_power + identity)
 end
 
-function filtro_proposicao_4(A::FqMatrix, B::FqMatrix, n::Int)::Bool
+function proposition4_filter(A::FqMatrix, B::FqMatrix, n::Int)::Bool
     A = _ensure_gf2_matrix(A, n, name = "A")
     B = _ensure_gf2_matrix(B, n, name = "B")
     check_compatible_pair(A, B)
@@ -70,11 +70,11 @@ function filtro_proposicao_4(A::FqMatrix, B::FqMatrix, n::Int)::Bool
     return true
 end
 
-function filtro_proposicao_4(A::AbstractMatrix, B::AbstractMatrix, n::Int)::Bool
+function proposition4_filter(A::AbstractMatrix, B::AbstractMatrix, n::Int)::Bool
     A_gf2 = _ensure_gf2_matrix(A, n, name = "A")
     B_gf2 = _ensure_gf2_matrix(B, n, name = "B")
 
-    return filtro_proposicao_4(A_gf2, B_gf2, n)
+    return proposition4_filter(A_gf2, B_gf2, n)
 end
 
 function _ensure_gf2_bitmatrix(A::FqMatrix, n::Int; name::String = "Matrix")::BitMatrix
@@ -176,7 +176,7 @@ function xor3_equals_identity(A::BitMatrix, B::BitMatrix, C::BitMatrix)::Bool
     return true
 end
 
-function filtro_proposicao_5(A, B, n::Int)::Bool
+function proposition5_filter(A, B, n::Int)::Bool
     A_bit = _ensure_gf2_bitmatrix(A, n, name = "A")
     B_bit = _ensure_gf2_bitmatrix(B, n, name = "B")
 
