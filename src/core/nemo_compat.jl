@@ -33,7 +33,3 @@ function matrix_multiplicative_order(A::FqMatrix)::Int
 
     error("Could not determine multiplicative order within $max_iterations iterations")
 end
-
-function matrix_minimal_polynomial(A::FqMatrix)
-    return minpoly(A)
-end

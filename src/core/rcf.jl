@@ -163,10 +163,10 @@ end
 function valid_rcf_block_sequence(blocks)
     isempty(blocks) && return false
 
-    previous_poly = matrix_minimal_polynomial(blocks[1])
+    previous_poly = minpoly(blocks[1])
 
     for i in 1:length(blocks)
-        current_poly = matrix_minimal_polynomial(blocks[i])
+        current_poly = minpoly(blocks[i])
 
         if !polynomial_divides(current_poly, previous_poly)
             return false
@@ -189,6 +189,7 @@ function get_rcfs(n::Int)::Vector{FqMatrix}
         for blocks in Base.Iterators.product(block_options...)
             if valid_rcf_block_sequence(blocks)
                 reversed_blocks = FqMatrix[block for block in reverse(blocks)]
+                @show typeof(reversed_blocks)
                 push!(matrix, block_diagonal_gf2(reversed_blocks))
             end
         end

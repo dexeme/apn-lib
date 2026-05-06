@@ -8,6 +8,8 @@ include("core/nemo_compat.jl")
 include("core/rcf.jl")
 include("apn/tuples.jl")
 include("apn/export.jl")
+include("apn/fileUtils.jl")
+include("apn/search.jl")
 
 export gf2
 
@@ -22,12 +24,19 @@ export check_square,
        check_compatible_pair
 
 export matrix_multiplicative_order,
-       matrix_minimal_polynomial,
        matrix_is_similar
 
 export check_order_space,
        filtro_proposicao_4,
        filtro_proposicao_5,
+       addDDTInformation,
+       removeDDTInformation,
+       isComplete,
+       nextFreePosition,
+       nextVal,
+       APNSearchContext,
+       APNSearch,
+       APNsearch,
        matrix_to_sbox,
        is_permutation_tuple,
        is_power_similar,

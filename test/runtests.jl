@@ -80,6 +80,28 @@ end
     @test filtro_proposicao_4(A_from_file, B_from_file, 6) == true
 end
 
+@testset "Dynamic APN search utilities" begin
+    sbox = fill(-1, 4)
+    ddt = zeros(Int, 4, 4)
+
+    sbox[0 + 1] = 0
+    @test addDDTInformation(0, sbox, ddt) == true
+    @test all(ddt .== 0)
+
+    sbox[3 + 1] = 3
+    @test addDDTInformation(3, sbox, ddt) == true
+    @test ddt[3 + 1, 3 + 1] == 2
+    @test removeDDTInformation(3, sbox, ddt) == true
+    @test all(ddt .== 0)
+
+    @test isComplete(sbox) == false
+    @test nextFreePosition(sbox) == 1
+
+    A = reshape([1], 1, 1)
+    solutions = APNSearch(1, A, A, max_solutions = 1, on_solution = s -> nothing)
+    @test solutions == [[0, 1]]
+end
+
 include("test_AllTuples6.jl")
 include("test_AllTuples7.jl")
 include("test_AllTuples8.jl")
