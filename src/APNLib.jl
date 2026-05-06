@@ -26,6 +26,7 @@ export matrix_multiplicative_order,
        matrix_is_similar
 
 export check_order_space,
+       filtro_proposicao_4,
        matrix_to_sbox,
        is_permutation_tuple,
        is_power_similar,
@@ -36,6 +37,17 @@ export blocks_for_rcf,
        get_rcfs
 
 export generate_tuples_file,
+       generate_tuple_constants_file,
+       generate_tuple_constants_files,
+       generate_tuple_matrix_constants_file,
+       generate_tuple_matrix_constants_files,
+       extrair_matrizes,
+       extract_matrices_from_tuple_lut,
+       load_precomputed_tuple_constants,
+       load_precomputed_tuple_matrix_constants,
+       precomputed_tuple_matrices,
+       precomputed_tuple_row,
+       precomputed_tuple_sboxes,
        tuple_to_sbox_row,
        tuples_to_sbox_rows
 

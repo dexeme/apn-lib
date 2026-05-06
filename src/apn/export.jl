@@ -1,5 +1,8 @@
 using Nemo
 
+const PRECOMPUTED_TUPLE_CACHE = Dict{Int, Vector{Vector{Int}}}()
+const PRECOMPUTED_TUPLE_MATRIX_CACHE = Dict{Int, Any}()
+
 function tuple_to_sbox_row(tuple)
     A, B = tuple
     return vcat(matrix_to_sbox(A), matrix_to_sbox(B))
@@ -40,4 +43,203 @@ function generate_tuples_file(tuples, filename::String = "tuples/AllTuples.h")
     open(filename, "w") do file
         write_c_array(file, rows)
     end
+end
+
+function parse_c_tuple_rows(filename::String)
+    text = read(filename, String)
+    body_match = match(r"int\s+AllTuples\s*\[[^\]]+\]\s*\[[^\]]+\]\s*=\s*\{(.*)\};"s, text)
+    body_match === nothing && error("Could not find AllTuples array in $filename")
+
+    rows = Vector{Vector{Int}}()
+
+    for row_match in eachmatch(r"\{([^{}]*)\}", body_match.captures[1])
+        values = Int[]
+        for value_match in eachmatch(r"-?\d+", row_match.captures[1])
+            push!(values, parse(Int, value_match.match))
+        end
+        push!(rows, values)
+    end
+
+    return rows
+end
+
+function tuple_constants_name(n::Int, index::Int)
+    return "ALL_TUPLES_$(n)_$(index)"
+end
+
+function write_julia_tuple_constants(file, n::Int, rows::Vector{Vector{Int}})
+    write(file, "# This file is generated from tuples/AllTuples$n.h.\n")
+    write(file, "# Regenerate it with generate_tuple_constants_file($n).\n\n")
+    write(file, "const N_TUPLES_$n = $(length(rows))\n\n")
+
+    names = String[]
+    for index in 1:length(rows)
+        name = tuple_constants_name(n, index)
+        push!(names, name)
+        write(file, "const $name = Int[$(join(rows[index], ", "))]\n\n")
+    end
+
+    write(file, "const ALL_TUPLES_$n = Vector{Int}[$(join(names, ", "))]\n")
+end
+
+function generate_tuple_constants_file(n::Int; tuples_dir::String = joinpath(@__DIR__, "..", "..", "tuples"))
+    source_filename = joinpath(tuples_dir, "AllTuples$n.h")
+    output_filename = joinpath(tuples_dir, "AllTuples$n.jl")
+
+    rows = parse_c_tuple_rows(source_filename)
+
+    open(output_filename, "w") do file
+        write_julia_tuple_constants(file, n, rows)
+    end
+
+    return output_filename
+end
+
+function generate_tuple_constants_files(ns; tuples_dir::String = joinpath(@__DIR__, "..", "..", "tuples"))
+    return [generate_tuple_constants_file(n, tuples_dir = tuples_dir) for n in ns]
+end
+
+function load_precomputed_tuple_constants(n::Int; tuples_dir::String = joinpath(@__DIR__, "..", "..", "tuples"))
+    if haskey(PRECOMPUTED_TUPLE_CACHE, n)
+        return PRECOMPUTED_TUPLE_CACHE[n]
+    end
+
+    filename = joinpath(tuples_dir, "AllTuples$n.jl")
+    isfile(filename) || error("Precomputed constants file not found: $filename")
+
+    namespace = Module(Symbol("APNLibPrecomputedTuples", n))
+    Base.include(namespace, filename)
+
+    rows = Base.invokelatest(getfield, namespace, Symbol("ALL_TUPLES_$n"))
+    PRECOMPUTED_TUPLE_CACHE[n] = rows
+
+    return rows
+end
+
+function precomputed_tuple_row(n::Int, index::Int; tuples_dir::String = joinpath(@__DIR__, "..", "..", "tuples"))
+    rows = load_precomputed_tuple_constants(n, tuples_dir = tuples_dir)
+    1 <= index <= length(rows) || error("Tuple index must be between 1 and $(length(rows)) for n = $n")
+
+    return rows[index]
+end
+
+function precomputed_tuple_sboxes(n::Int, index::Int; tuples_dir::String = joinpath(@__DIR__, "..", "..", "tuples"))
+    row = precomputed_tuple_row(n, index, tuples_dir = tuples_dir)
+    sbox_size = 2^n
+    length(row) == 2 * sbox_size || error("Tuple row for n = $n must have $(2 * sbox_size) entries")
+
+    lut_B = row[1:sbox_size]
+    lut_A = row[(sbox_size + 1):end]
+
+    return lut_A, lut_B
+end
+
+function lut_to_matrix(lut::AbstractVector{<:Integer}, n::Int)::Matrix{Int}
+    length(lut) == 2^n || error("LUT for n = $n must have $(2^n) entries")
+
+    M = zeros(Int, n, n)
+
+    for col in 1:n
+        basis_vector = 2^(col - 1)
+        value = lut[basis_vector + 1]
+        M[:, col] = digits(value, base = 2, pad = n)[1:n]
+    end
+
+    return M
+end
+
+function extract_matrices_from_tuple_lut(tuple_lut::AbstractVector{<:Integer}, n::Int)
+    sbox_size = 2^n
+    length(tuple_lut) == 2 * sbox_size || error("Tuple LUT for n = $n must have $(2 * sbox_size) entries")
+
+    lut_B = tuple_lut[1:sbox_size]
+    lut_A = tuple_lut[(sbox_size + 1):end]
+
+    A = lut_to_matrix(lut_A, n)
+    B = lut_to_matrix(lut_B, n)
+
+    return A, B
+end
+
+function extrair_matrizes(tuple_lut::AbstractVector{<:Integer}, n::Int)
+    return extract_matrices_from_tuple_lut(tuple_lut, n)
+end
+
+function matrix_literal(M::AbstractMatrix{<:Integer})
+    rows = String[]
+
+    for row in 1:size(M, 1)
+        push!(rows, join((string(Int(M[row, col])) for col in 1:size(M, 2)), " "))
+    end
+
+    return "Int[" * join(rows, "; ") * "]"
+end
+
+function write_julia_tuple_matrix_constants(file, n::Int, rows::Vector{Vector{Int}})
+    write(file, "# This file is generated from tuples/AllTuples$n.h.\n")
+    write(file, "# Regenerate it with generate_tuple_matrix_constants_file($n).\n")
+    write(file, "# Each class is stored as: tuple LUT, matrix A, matrix B.\n\n")
+    write(file, "const N_TUPLE_MATRIX_BLOCKS_$n = $(length(rows))\n\n")
+
+    for index in 1:length(rows)
+        tuple_name = "ALL_TUPLES_$(n)_$(index)_TUPLE"
+        a_name = "ALL_TUPLES_$(n)_$(index)_A"
+        b_name = "ALL_TUPLES_$(n)_$(index)_B"
+        A, B = extract_matrices_from_tuple_lut(rows[index], n)
+
+        write(file, "const $tuple_name = Int[$(join(rows[index], ", "))]\n")
+        write(file, "const $a_name = $(matrix_literal(A))\n")
+        write(file, "const $b_name = $(matrix_literal(B))\n")
+        write(file, "\n")
+    end
+end
+
+function generate_tuple_matrix_constants_file(n::Int; tuples_dir::String = joinpath(@__DIR__, "..", "..", "tuples"))
+    source_filename = joinpath(tuples_dir, "AllTuples$n.h")
+    output_filename = joinpath(tuples_dir, "AllTuplesMatrices$n.jl")
+
+    rows = parse_c_tuple_rows(source_filename)
+
+    open(output_filename, "w") do file
+        write_julia_tuple_matrix_constants(file, n, rows)
+    end
+
+    return output_filename
+end
+
+function generate_tuple_matrix_constants_files(ns; tuples_dir::String = joinpath(@__DIR__, "..", "..", "tuples"))
+    return [generate_tuple_matrix_constants_file(n, tuples_dir = tuples_dir) for n in ns]
+end
+
+function load_precomputed_tuple_matrix_constants(n::Int; tuples_dir::String = joinpath(@__DIR__, "..", "..", "tuples"))
+    if haskey(PRECOMPUTED_TUPLE_MATRIX_CACHE, n)
+        return PRECOMPUTED_TUPLE_MATRIX_CACHE[n]
+    end
+
+    filename = joinpath(tuples_dir, "AllTuplesMatrices$n.jl")
+    isfile(filename) || error("Precomputed matrix constants file not found: $filename")
+
+    namespace = Module(Symbol("APNLibPrecomputedTupleMatrices", n))
+    Base.include(namespace, filename)
+
+    n_blocks = Base.invokelatest(getfield, namespace, Symbol("N_TUPLE_MATRIX_BLOCKS_$n"))
+    blocks = [
+        (
+            tuple = Base.invokelatest(getfield, namespace, Symbol("ALL_TUPLES_$(n)_$(index)_TUPLE")),
+            A = Base.invokelatest(getfield, namespace, Symbol("ALL_TUPLES_$(n)_$(index)_A")),
+            B = Base.invokelatest(getfield, namespace, Symbol("ALL_TUPLES_$(n)_$(index)_B")),
+        )
+        for index in 1:n_blocks
+    ]
+    PRECOMPUTED_TUPLE_MATRIX_CACHE[n] = blocks
+
+    return blocks
+end
+
+function precomputed_tuple_matrices(n::Int, index::Int; tuples_dir::String = joinpath(@__DIR__, "..", "..", "tuples"))
+    blocks = load_precomputed_tuple_matrix_constants(n, tuples_dir = tuples_dir)
+    1 <= index <= length(blocks) || error("Tuple index must be between 1 and $(length(blocks)) for n = $n")
+
+    block = blocks[index]
+    return block.A, block.B
 end

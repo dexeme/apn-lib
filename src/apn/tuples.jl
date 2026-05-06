@@ -1,5 +1,81 @@
 using Nemo
 
+function _ensure_gf2_matrix(A::FqMatrix, n::Int; name::String = "Matrix")
+    check_square(A, name = name)
+    nrows(A) == n || error("$name must have $n rows")
+    ncols(A) == n || error("$name must have $n columns")
+    base_ring(A) == gf2() || error("$name must be over GF(2)")
+
+    return A
+end
+
+function _ensure_gf2_matrix(A::AbstractMatrix, n::Int; name::String = "Matrix")
+    size(A) == (n, n) || error("$name must be a $n x $n matrix")
+
+    F = gf2()
+    M = zero_matrix(F, n, n)
+
+    for col in 1:n
+        for row in 1:n
+            M[row, col] = F(mod(Int(A[row, col]), 2))
+        end
+    end
+
+    return M
+end
+
+function rank_gf2(M::FqMatrix)::Int
+    base_ring(M) == gf2() || error("Matrix must be over GF(2)")
+
+    return rank(M)
+end
+
+function nullity_gf2(M::FqMatrix)::Int
+    base_ring(M) == gf2() || error("Matrix must be over GF(2)")
+
+    return ncols(M) - rank_gf2(M)
+end
+
+function fixed_space_dimension_gf2(M_power::FqMatrix)::Int
+    F = base_ring(M_power)
+    n = nrows(M_power)
+    I = identity_matrix(F, n)
+
+    return nullity_gf2(M_power + I)
+end
+
+function filtro_proposicao_4(A::FqMatrix, B::FqMatrix, n::Int)::Bool
+    A = _ensure_gf2_matrix(A, n, name = "A")
+    B = _ensure_gf2_matrix(B, n, name = "B")
+    check_compatible_pair(A, B)
+
+    order_A = matrix_multiplicative_order(A)
+    A_power = identity_matrix(base_ring(A), n)
+    B_power = identity_matrix(base_ring(B), n)
+    forbidden_dimensions = (2, 4, n - 1)
+
+    for _ in 1:order_A
+        A_power = A_power * A
+        B_power = B_power * B
+
+        d_A = fixed_space_dimension_gf2(A_power)
+        d_B = fixed_space_dimension_gf2(B_power)
+
+        if d_A != d_B || d_A in forbidden_dimensions || d_B in forbidden_dimensions
+            return false
+        end
+    end
+
+    return true
+end
+
+function filtro_proposicao_4(A::AbstractMatrix, B::AbstractMatrix, n::Int)::Bool
+    A_gf2 = _ensure_gf2_matrix(A, n, name = "A")
+    B_gf2 = _ensure_gf2_matrix(B, n, name = "B")
+
+    return filtro_proposicao_4(A_gf2, B_gf2, n)
+end
+
 function check_order_space(A::FqMatrix, i::Int)
     check_square(A)
 
