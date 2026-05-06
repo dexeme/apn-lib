@@ -41,7 +41,7 @@ function check_compatible_pair(A::AbstractMatrix, B::AbstractMatrix)::Bool
     return true
 end
 
-function block_diagonal_gf2(blocks::Vector{FqMatrix})::Vector{FqMatrix}
+function block_diagonal_gf2(blocks::Vector{FqMatrix})::FqMatrix
     isempty(blocks) && error("At least one block is required")
 
     typed_blocks = FqMatrix[block for block in blocks]
