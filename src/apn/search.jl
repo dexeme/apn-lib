@@ -303,3 +303,7 @@ function APNSearch(n::Int, A, B;
 
     return nextVal(0, sbox, ddt, context)
 end
+
+function APNsearch(args...; kwargs...)
+    return APNSearch(args...; kwargs...)
+end

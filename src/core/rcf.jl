@@ -111,10 +111,6 @@ function polynomial_equal(a, b)
     return a_same_parent == b_same_parent
 end
 
-function matrix_characteristic_polynomial(A::FqMatrix)
-    return charpoly(A)
-end
-
 function matrix_is_similar(A::FqMatrix, B::FqMatrix)
     check_compatible_pair(A, B)
 
@@ -143,8 +139,8 @@ function matrix_is_similar(A::FqMatrix, B::FqMatrix)
     # For the odd prime-order matrices used in this algorithm,
     # the matrices are semisimple, so the characteristic polynomial
     # determines the similarity class.
-    char_A = matrix_characteristic_polynomial(A)
-    char_B = matrix_characteristic_polynomial(B)
+    char_A = charpoly(A)
+    char_B = charpoly(B)
 
     return polynomial_equal(char_A, char_B)
 end
@@ -189,7 +185,6 @@ function get_rcfs(n::Int)::Vector{FqMatrix}
         for blocks in Base.Iterators.product(block_options...)
             if valid_rcf_block_sequence(blocks)
                 reversed_blocks = FqMatrix[block for block in reverse(blocks)]
-                @show typeof(reversed_blocks)
                 push!(matrix, block_diagonal_gf2(reversed_blocks))
             end
         end
