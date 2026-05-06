@@ -27,6 +27,7 @@ export matrix_multiplicative_order,
 
 export check_order_space,
        filtro_proposicao_4,
+       filtro_proposicao_5,
        matrix_to_sbox,
        is_permutation_tuple,
        is_power_similar,

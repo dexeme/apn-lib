@@ -76,6 +76,133 @@ function filtro_proposicao_4(A::AbstractMatrix, B::AbstractMatrix, n::Int)::Bool
     return filtro_proposicao_4(A_gf2, B_gf2, n)
 end
 
+function _ensure_gf2_bitmatrix(A::FqMatrix, n::Int; name::String = "Matrix")::BitMatrix
+    A = _ensure_gf2_matrix(A, n, name = name)
+    M = falses(n, n)
+
+    for col in 1:n
+        for row in 1:n
+            M[row, col] = !iszero(A[row, col])
+        end
+    end
+
+    return M
+end
+
+function _ensure_gf2_bitmatrix(A::AbstractMatrix, n::Int; name::String = "Matrix")::BitMatrix
+    size(A) == (n, n) || error("$name must be a $n x $n matrix")
+    M = falses(n, n)
+
+    for col in 1:n
+        for row in 1:n
+            M[row, col] = isodd(Int(A[row, col]))
+        end
+    end
+
+    return M
+end
+
+function identity_bitmatrix(n::Int)::BitMatrix
+    I = falses(n, n)
+
+    for i in 1:n
+        I[i, i] = true
+    end
+
+    return I
+end
+
+function gf2_bitmul(A::BitMatrix, B::BitMatrix)::BitMatrix
+    n = size(A, 1)
+    size(A, 2) == n || error("A must be square")
+    size(B) == (n, n) || error("B must have the same square size as A")
+
+    C = falses(n, n)
+
+    @inbounds for col in 1:n
+        for row in 1:n
+            value = false
+            for mid in 1:n
+                value = xor(value, A[row, mid] & B[mid, col])
+            end
+            C[row, col] = value
+        end
+    end
+
+    return C
+end
+
+function bitmatrix_multiplicative_order(A::BitMatrix)::Int
+    n = size(A, 1)
+    I = identity_bitmatrix(n)
+    power = I
+    max_iterations = 10_000_000
+
+    for k in 1:max_iterations
+        power = gf2_bitmul(power, A)
+        power == I && return k
+    end
+
+    error("Could not determine multiplicative order within $max_iterations iterations")
+end
+
+function precompute_gf2_bit_powers(A::BitMatrix, k::Int)::Vector{BitMatrix}
+    powers = Vector{BitMatrix}(undef, max(k - 1, 0))
+    isempty(powers) && return powers
+
+    powers[1] = copy(A)
+
+    for i in 2:(k - 1)
+        powers[i] = gf2_bitmul(powers[i - 1], A)
+    end
+
+    return powers
+end
+
+function xor3_equals_identity(A::BitMatrix, B::BitMatrix, C::BitMatrix)::Bool
+    n = size(A, 1)
+
+    @inbounds for col in 1:n
+        for row in 1:n
+            expected = row == col
+            xor(xor(A[row, col], B[row, col]), C[row, col]) == expected || return false
+        end
+    end
+
+    return true
+end
+
+function filtro_proposicao_5(A, B, n::Int)::Bool
+    A_bit = _ensure_gf2_bitmatrix(A, n, name = "A")
+    B_bit = _ensure_gf2_bitmatrix(B, n, name = "B")
+
+    k = bitmatrix_multiplicative_order(A_bit)
+    bitmatrix_multiplicative_order(B_bit) == k || return false
+    k >= 4 || return true
+
+    A_powers = precompute_gf2_bit_powers(A_bit, k)
+    B_powers = precompute_gf2_bit_powers(B_bit, k)
+
+    for a in 1:(k - 3)
+        A_a = A_powers[a]
+        B_a = B_powers[a]
+
+        for b in (a + 1):(k - 2)
+            A_b = A_powers[b]
+            B_b = B_powers[b]
+
+            for c in (b + 1):(k - 1)
+                if xor3_equals_identity(A_a, A_b, A_powers[c]) &&
+                   xor3_equals_identity(B_a, B_b, B_powers[c])
+                    return false
+                end
+            end
+        end
+    end
+
+    return true
+end
+
 function check_order_space(A::FqMatrix, i::Int)
     check_square(A)
 
@@ -209,8 +336,6 @@ function filter_permutation_tuples(pairs::Vector{Tuple{T, T}}) where T <: FqMatr
             push!(valid_pairs, pair)
         end
     end
-    @show valid_pairs
-    typeof(valid_pairs)
     return valid_pairs
 end
 

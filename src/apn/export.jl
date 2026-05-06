@@ -105,7 +105,16 @@ function load_precomputed_tuple_constants(n::Int; tuples_dir::String = joinpath(
     end
 
     filename = joinpath(tuples_dir, "AllTuples$n.jl")
-    isfile(filename) || error("Precomputed constants file not found: $filename")
+    if !isfile(filename)
+        matrix_filename = joinpath(tuples_dir, "AllTuplesMatrices$n.jl")
+        if isfile(matrix_filename)
+            rows = [block.tuple for block in load_precomputed_tuple_matrix_constants(n, tuples_dir = tuples_dir)]
+            PRECOMPUTED_TUPLE_CACHE[n] = rows
+            return rows
+        end
+
+        error("Precomputed constants file not found: $filename")
+    end
 
     namespace = Module(Symbol("APNLibPrecomputedTuples", n))
     Base.include(namespace, filename)

@@ -80,6 +80,10 @@ end
     @test filtro_proposicao_4(A_from_file, B_from_file, 6) == true
 end
 
+include("test_AllTuples6.jl")
+include("test_AllTuples7.jl")
+include("test_AllTuples8.jl")
+
 @testset "RCF blocks" begin
     blocks = blocks_for_rcf(3)
 

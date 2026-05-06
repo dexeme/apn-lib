@@ -26,3 +26,5 @@ The code also includes an example S-box and prints the extracted APN matrix. =#
 #   deve descartar automaticamente as Classes 6, 9, 13, 16 e 17.
 #    A Proposição 5 (que verifica a existência de um quadrinômio que seja múltiplo dos polinômios mínimos
 # das matrizes A e B) deve descartar automaticamente as Classes 4, 8 e 12.
+
+# todo: tentar colocar em gray code as matrizes pra visualizar melhor as diferenças entre elas

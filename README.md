@@ -13,3 +13,6 @@ julia > generate_tuples_file(T, "tuples/AllTuples$n.h")
 # Extract matrices A, B from tuples 
 
 A, B = precomputed_tuple_matrices(n,class)
+
+# Apply proposition 4
+filtro_proposicao_4(A, B, n)
