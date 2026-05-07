@@ -32,6 +32,29 @@ end
     @test format_sbox_polynomial(identity_lut, 3) == "x^1"
 end
 
+@testset "APN Search Class Selection" begin
+    @test all_precomputed_tuple_class_indices(3) == [1, 2, 3, 4]
+    @test normalize_precomputed_tuple_classes(3, "all") == [1, 2, 3, 4]
+    @test normalize_precomputed_tuple_classes(3, "[4]") == [4]
+    @test normalize_precomputed_tuple_classes(3, "[1, 3]") == [1, 3]
+    @test normalize_precomputed_tuple_classes(3, "all", excluded_class_indices = [2, 4]) == [1, 3]
+    @test normalize_precomputed_tuple_classes(3, [1, 1]) == [1]
+end
+
+@testset "APN Search Batch Classes" begin
+    results = APNSearchClasses(
+        3,
+        [1],
+        max_solutions = 1,
+        on_solution = (class_index, sbox) -> nothing,
+        save_results = false,
+    )
+
+    @test sort(collect(keys(results))) == [1]
+    @test length(results[1]) == 1
+    @test APNSearchClasses(3, "all", excluded_class_indices = [1, 2, 3, 4], save_results = false) == Dict{Int, Vector{Vector{Int}}}()
+end
+
 @testset "APN Search Matrix Constant Output" begin
     identity3 = Int[1 0 0; 0 1 0; 0 0 1]
     constants_filename = joinpath("tuples", "AllTuplesMatrices3.jl")

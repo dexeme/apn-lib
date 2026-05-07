@@ -1,8 +1,7 @@
 using Test
+using APNLib
 
-include("../src/apagar/teste.jl")
-
-@testset "Monomial representative search script" begin
+@testset "Monomial representative search" begin
     candidates = N7_MONOMIAL_REPRESENTATIVE_EXPONENTS
 
     @test compute_expected_monomial_representatives(7, 1, candidate_exponents = candidates) ==

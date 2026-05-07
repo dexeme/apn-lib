@@ -176,6 +176,22 @@ function xor3_equals_identity(A::BitMatrix, B::BitMatrix, C::BitMatrix)::Bool
     return true
 end
 
+function has_matching_identity_xor_triple(A_powers::Vector{BitMatrix},
+                                          B_powers::Vector{BitMatrix},
+                                          first_power::Int,
+                                          second_power::Int,
+                                          third_power::Int)::Bool
+    return xor3_equals_identity(
+        A_powers[first_power],
+        A_powers[second_power],
+        A_powers[third_power],
+    ) && xor3_equals_identity(
+        B_powers[first_power],
+        B_powers[second_power],
+        B_powers[third_power],
+    )
+end
+
 function proposition5_filter(A, B, n::Int)::Bool
     A_bit = _ensure_gf2_bitmatrix(A, n, name = "A")
     B_bit = _ensure_gf2_bitmatrix(B, n, name = "B")
@@ -187,17 +203,16 @@ function proposition5_filter(A, B, n::Int)::Bool
     A_powers = precompute_gf2_bit_powers(A_bit, multiplicative_order)
     B_powers = precompute_gf2_bit_powers(B_bit, multiplicative_order)
 
-    for a in 1:(multiplicative_order - 3)
-        A_a = A_powers[a]
-        B_a = B_powers[a]
-
-        for b in (a + 1):(multiplicative_order - 2)
-            A_b = A_powers[b]
-            B_b = B_powers[b]
-
-            for c in (b + 1):(multiplicative_order - 1)
-                if xor3_equals_identity(A_a, A_b, A_powers[c]) &&
-                   xor3_equals_identity(B_a, B_b, B_powers[c])
+    for first_power in 1:(multiplicative_order - 3)
+        for second_power in (first_power + 1):(multiplicative_order - 2)
+            for third_power in (second_power + 1):(multiplicative_order - 1)
+                if has_matching_identity_xor_triple(
+                    A_powers,
+                    B_powers,
+                    first_power,
+                    second_power,
+                    third_power,
+                )
                     return false
                 end
             end
@@ -241,24 +256,24 @@ function matrix_to_sbox(A::FqMatrix)
 end
 
 function permutation_cycle_structure(permutation::Vector{Int})::Vector{Int}
-    size = length(permutation)
-    seen = falses(size)
+    permutation_size = length(permutation)
+    seen = falses(permutation_size)
     cycle_lengths = Int[]
 
-    @inbounds for start in 0:(size - 1)
+    @inbounds for start in 0:(permutation_size - 1)
         seen[start + 1] && continue
 
         current = start
-        length = 0
+        cycle_length = 0
 
         while !seen[current + 1]
             seen[current + 1] = true
-            length += 1
+            cycle_length += 1
             current = permutation[current + 1]
-            0 <= current < size || error("Permutation value out of range: $current")
+            0 <= current < permutation_size || error("Permutation value out of range: $current")
         end
 
-        push!(cycle_lengths, length)
+        push!(cycle_lengths, cycle_length)
     end
 
     return sort!(cycle_lengths)

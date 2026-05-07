@@ -82,11 +82,19 @@ function check_sbox_ddt_sizes(sbox::Vector{Int}, ddt::Matrix{Int})::Bool
     return true
 end
 
+function check_sbox_space_size(sbox::Vector{Int}, n::Int)::Bool
+    expected_size = 2^n
+    length(sbox) == expected_size || error("sbox must have $expected_size entries")
+    return true
+end
+
 function even_hamming_weight_differences(space_size::Int)::Vector{Int}
     return [alpha for alpha in 1:(space_size - 1) if iseven(count_ones(alpha))]
 end
 
-function addDDTInformationUnchecked(c::Int, sbox::Vector{Int}, ddt::Matrix{Int})::Bool
+function updateDDTInformationUnchecked(c::Int, sbox::Vector{Int}, ddt::Matrix{Int}, delta::Int)::Bool
+    delta in (-2, 2) || error("Unsupported DDT delta: $delta")
+
     c_value = sbox[c + 1]
     c_value != -1 || error("sbox[$c] must be assigned before updating the DDT")
     space_size = length(sbox)
@@ -97,37 +105,21 @@ function addDDTInformationUnchecked(c::Int, sbox::Vector{Int}, ddt::Matrix{Int})
         paired_value == -1 && continue
 
         out_diff = xor(c_value, paired_value)
-        ddt_value = ddt[alpha + 1, out_diff + 1] + 2
+        ddt_value = ddt[alpha + 1, out_diff + 1] + delta
         ddt[alpha + 1, out_diff + 1] = ddt_value
-        ddt_value > 2 && return false
+        delta == 2 && ddt_value > 2 && return false
+        delta == -2 && ddt_value == 2 && break
     end
 
     return true
+end
+
+function addDDTInformationUnchecked(c::Int, sbox::Vector{Int}, ddt::Matrix{Int})::Bool
+    return updateDDTInformationUnchecked(c, sbox, ddt, 2)
 end
 
 function removeDDTInformationUnchecked(c::Int, sbox::Vector{Int}, ddt::Matrix{Int})::Bool
-    c_value = sbox[c + 1]
-    c_value != -1 || error("sbox[$c] must be assigned before updating the DDT")
-    space_size = length(sbox)
-
-    @inbounds for alpha in even_hamming_weight_differences(space_size)
-        paired_x = xor(c, alpha)
-        paired_value = sbox[paired_x + 1]
-        paired_value == -1 && continue
-
-        out_diff = xor(c_value, paired_value)
-        ddt_value = ddt[alpha + 1, out_diff + 1] - 2
-        ddt[alpha + 1, out_diff + 1] = ddt_value
-        ddt_value == 2 && break
-    end
-
-    return true
-end
-
-function updateDDTInformationUnchecked(c::Int, sbox::Vector{Int}, ddt::Matrix{Int}, delta::Int)::Bool
-    delta == 2 && return addDDTInformationUnchecked(c, sbox, ddt)
-    delta == -2 && return removeDDTInformationUnchecked(c, sbox, ddt)
-    error("Unsupported DDT delta: $delta")
+    return updateDDTInformationUnchecked(c, sbox, ddt, -2)
 end
 
 function addDDTInformation(c::Int, sbox::Vector{Int}, ddt::Matrix{Int})::Bool
@@ -331,7 +323,7 @@ function APNSearchContext(n::Int;
 end
 
 function seed_used_outputs!(context::APNSearchContext, sbox::Vector{Int})
-    length(sbox) == context.space_size || error("sbox must have $(context.space_size) entries")
+    check_sbox_space_size(sbox, context.n)
     fill!(context.used_outputs, false)
 
     @inbounds for y in sbox
@@ -341,27 +333,76 @@ function seed_used_outputs!(context::APNSearchContext, sbox::Vector{Int})
     end
 end
 
+function search_timed_out!(context::APNSearchContext)::Bool
+    context.deadline === nothing && return false
+    time() <= context.deadline && return false
+
+    context.timed_out = true
+    return true
+end
+
+function record_complete_solution!(context::APNSearchContext, sbox::Vector{Int})
+    solution = copy(sbox)
+    solution_is_apn = is_apn(solution)
+    println("solution_is_apn = $solution_is_apn")
+
+    if context.verify_apn_on_solution && !solution_is_apn
+        error("Completed S-box is not APN")
+    end
+
+    push!(context.solutions, solution)
+    context.on_solution(solution)
+
+    if context.save_results
+        save_search_result_constant(solution, context.n, context.class_index)
+    end
+
+    return context.solutions
+end
+
+function assign_orbit!(start_x::Int, start_y::Int, orbit_length::Int,
+                       sbox::Vector{Int}, ddt::Matrix{Int},
+                       context::APNSearchContext)::Tuple{Bool, Vector{Int}}
+    current_x = start_x
+    current_y = start_y
+    assigned_inputs = Int[]
+
+    for _ in 1:orbit_length
+        if sbox[current_x + 1] != -1 || context.used_outputs[current_y + 1]
+            return false, assigned_inputs
+        end
+
+        sbox[current_x + 1] = current_y
+        context.used_outputs[current_y + 1] = true
+        push!(assigned_inputs, current_x)
+
+        if !addDDTInformationUnchecked(current_x, sbox, ddt)
+            return false, assigned_inputs
+        end
+
+        current_x = context.apply_A[current_x + 1]
+        current_y = context.apply_B[current_y + 1]
+    end
+
+    return true, assigned_inputs
+end
+
+function rollback_orbit!(assigned_inputs::Vector{Int}, sbox::Vector{Int},
+                         ddt::Matrix{Int}, context::APNSearchContext)
+    for assigned_x in Iterators.reverse(assigned_inputs)
+        removeDDTInformationUnchecked(assigned_x, sbox, ddt)
+        context.used_outputs[sbox[assigned_x + 1] + 1] = false
+        sbox[assigned_x + 1] = -1
+    end
+end
+
 function nextVal(depth::Int, sbox::Vector{Int}, ddt::Matrix{Int}, context::APNSearchContext)
     check_sbox_ddt_sizes(sbox, ddt)
     length(context.solutions) >= context.max_solutions && return context.solutions
-    if context.deadline !== nothing && time() > context.deadline
-        context.timed_out = true
-        return context.solutions
-    end
+    search_timed_out!(context) && return context.solutions
 
     if isComplete(sbox)
-        solution = copy(sbox)
-        solution_is_apn = is_apn(solution)
-        @show solution_is_apn
-        if context.verify_apn_on_solution && !solution_is_apn
-            error("Completed S-box is not APN")
-        end
-        push!(context.solutions, solution)
-        context.on_solution(solution)
-        if context.save_results
-            save_search_result_constant(solution, context.n, context.class_index)
-        end
-        return context.solutions
+        return record_complete_solution!(context, sbox)
     end
 
     x = nextFreePosition(sbox, context.visit_order)
@@ -373,39 +414,13 @@ function nextVal(depth::Int, sbox::Vector{Int}, ddt::Matrix{Int}, context::APNSe
         context.used_outputs[y + 1] && continue
         ord_x == context.ord_B[y + 1] || continue
 
-        current_x = x
-        current_y = y
-        assigned_inputs = Int[]
-        assignment_is_valid = true
-
-        for _ in 1:ord_x
-            if sbox[current_x + 1] != -1 || context.used_outputs[current_y + 1]
-                assignment_is_valid = false
-                break
-            end
-
-            sbox[current_x + 1] = current_y
-            context.used_outputs[current_y + 1] = true
-            push!(assigned_inputs, current_x)
-
-            if !addDDTInformationUnchecked(current_x, sbox, ddt)
-                assignment_is_valid = false
-                break
-            end
-
-            current_x = context.apply_A[current_x + 1]
-            current_y = context.apply_B[current_y + 1]
-        end
+        assignment_is_valid, assigned_inputs = assign_orbit!(x, y, ord_x, sbox, ddt, context)
 
         if assignment_is_valid
             nextVal(depth + 1, sbox, ddt, context)
         end
 
-        for assigned_x in Iterators.reverse(assigned_inputs)
-            removeDDTInformationUnchecked(assigned_x, sbox, ddt)
-            context.used_outputs[sbox[assigned_x + 1] + 1] = false
-            sbox[assigned_x + 1] = -1
-        end
+        rollback_orbit!(assigned_inputs, sbox, ddt, context)
     end
 
     return context.solutions
@@ -420,11 +435,12 @@ function nextVal(depth::Int, sbox::Vector{Int}, ddt::Matrix{Int};
                  on_solution::Function = sbox -> nothing,
                  save_results::Bool = false,
                  class_index::Union{Nothing, Int} = nothing,
-                 visit_order::Vector{Int} = c_reference_visit_order(n, class_index),
+                 visit_order::Union{Nothing, Vector{Int}} = nothing,
                  timeout_seconds::Union{Nothing, Real} = nothing,
                  verify_apn_on_solution::Bool = true)
     n = trailing_zeros(length(sbox))
     2^n == length(sbox) || error("sbox length must be a power of 2")
+    selected_visit_order = visit_order === nothing ? c_reference_visit_order(n, class_index) : visit_order
 
     context = APNSearchContext(
         n,
@@ -436,7 +452,7 @@ function nextVal(depth::Int, sbox::Vector{Int}, ddt::Matrix{Int};
         on_solution = on_solution,
         save_results = save_results,
         class_index = class_index,
-        visit_order = visit_order,
+        visit_order = selected_visit_order,
         timeout_seconds = timeout_seconds,
         verify_apn_on_solution = verify_apn_on_solution,
     )
@@ -456,9 +472,8 @@ function APNSearch(n::Int, A, B;
                    timeout_seconds::Union{Nothing, Real} = nothing,
                    seed_zero::Bool = true,
                    verify_apn_on_solution::Bool = true)
-    space_size = 2^n
-    length(sbox) == space_size || error("sbox must have $space_size entries")
-    size(ddt) == (space_size, space_size) || error("ddt must be $space_size x $space_size")
+    check_sbox_space_size(sbox, n)
+    check_sbox_ddt_sizes(sbox, ddt)
 
     if seed_zero
         sbox[1] in (-1, 0) || error("C reference search requires sbox[0] to be 0")
@@ -485,6 +500,39 @@ function APNSearch(n::Int, A, B;
     return nextVal(0, sbox, ddt, context)
 end
 
-function APNsearch(args...; kwargs...)
-    return APNSearch(args...; kwargs...)
+function APNSearchClasses(n::Int, class_indices = "all";
+                          excluded_class_indices = Int[],
+                          max_solutions::Int = 1,
+                          on_solution::Function = (class_index, sbox) -> println("class $class_index: $sbox" ),
+                          save_results::Bool = true,
+                          timeout_seconds::Union{Nothing, Real} = nothing,
+                          seed_zero::Bool = true,
+                          verify_apn_on_solution::Bool = true,
+                          tuples_dir::String = default_tuples_dir())
+    classes = normalize_precomputed_tuple_classes(
+        n,
+        class_indices,
+        excluded_class_indices = excluded_class_indices,
+        tuples_dir = tuples_dir,
+    )
+    results = Dict{Int, Vector{Vector{Int}}}()
+
+    for class_index in classes
+        A, B = precomputed_tuple_matrices(n, class_index, tuples_dir = tuples_dir)
+        results[class_index] = APNSearch(
+            n,
+            A,
+            B,
+            max_solutions = max_solutions,
+            on_solution = sbox -> on_solution(class_index, sbox),
+            save_results = save_results,
+            class_index = class_index,
+            visit_order = c_reference_visit_order(n, class_index),
+            timeout_seconds = timeout_seconds,
+            seed_zero = seed_zero,
+            verify_apn_on_solution = verify_apn_on_solution,
+        )
+    end
+
+    return results
 end

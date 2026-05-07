@@ -70,20 +70,20 @@ function companion_matrix_gf2(F, coeffs)
     coeffs[1] == one(F) || error("Constant coefficient must be 1")
     coeffs[d + 1] == one(F) || error("Leading coefficient must be 1")
 
-    C = zero_matrix(F, d, d)
+    companion = zero_matrix(F, d, d)
 
     for i in 2:d
-        C[i, i - 1] = one(F)
+        companion[i, i - 1] = one(F)
     end
 
     # Match Sage's companion_matrix(Q(list(v))) over GF(2):
     # the last column stores [c0, c1, ..., c_{d-1}]^T for
     # f(X) = c0 + c1*X + ... + c_{d-1}*X^(d-1) + X^d.
     for i in 1:d
-        C[i, d] = coeffs[i]
+        companion[i, d] = coeffs[i]
     end
 
-    return C
+    return companion
 end
 
 function blocks_for_rcf(d::Int)
@@ -123,7 +123,7 @@ function matrix_is_similar(A::FqMatrix, B::FqMatrix)
 
     F = base_ring(A)
     n = nrows(A)
-    I = identity_matrix(F, n)
+    identity = identity_matrix(F, n)
 
     # Order 1: both are identity matrices.
     if order_A == 1
@@ -133,7 +133,7 @@ function matrix_is_similar(A::FqMatrix, B::FqMatrix)
     # In characteristic 2, matrices of order 2 are unipotent.
     # Similarity is determined by the rank of A - I.
     if order_A == 2
-        return rank(A - I) == rank(B - I)
+        return rank(A - identity) == rank(B - identity)
     end
 
     # For the odd prime-order matrices used in this algorithm,
@@ -161,8 +161,8 @@ function valid_rcf_block_sequence(blocks)
 
     previous_poly = minpoly(blocks[1])
 
-    for i in 1:length(blocks)
-        current_poly = minpoly(blocks[i])
+    for block in blocks
+        current_poly = minpoly(block)
 
         if !polynomial_divides(current_poly, previous_poly)
             return false
@@ -177,7 +177,7 @@ end
 function get_rcfs(n::Int)::Vector{FqMatrix}
     n >= 1 || error("n must be positive")
 
-    matrix = FqMatrix[]
+    matrices = FqMatrix[]
 
     for partition in integer_partitions(n)
         block_options = [blocks_for_rcf(part) for part in partition]
@@ -185,10 +185,10 @@ function get_rcfs(n::Int)::Vector{FqMatrix}
         for blocks in Base.Iterators.product(block_options...)
             if valid_rcf_block_sequence(blocks)
                 reversed_blocks = FqMatrix[block for block in reverse(blocks)]
-                push!(matrix, block_diagonal_gf2(reversed_blocks))
+                push!(matrices, block_diagonal_gf2(reversed_blocks))
             end
         end
     end
 
-    return matrix
+    return matrices
 end

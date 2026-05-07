@@ -91,6 +91,29 @@ For example:
 const ALL_TUPLES_7_1_SEARCH = Int[...]
 ```
 
+Run Algorithm 1 for multiple classes:
+
+```julia
+using APNLib
+
+n = 7
+
+# One class, an explicit class list, or all precomputed classes.
+c = "all"
+# c = [1, 4, 7, 10]
+
+results = APNSearchClasses(
+    n,
+    c,
+    excluded_class_indices = [13, 18, 21],
+    max_solutions = 1,
+    save_results = true,
+    on_solution = (class_index, sbox) -> println("class $class_index finished"),
+)
+```
+
+`APNSearchClasses` returns a `Dict{Int, Vector{Vector{Int}}}` mapping each class to its solutions. With `save_results = true`, each solution is written as `ALL_TUPLES_{n}_{class}_SEARCH`.
+
 # Print Formatted Polynomials
 
 Load the saved S-box constant and print the interpolated polynomial:

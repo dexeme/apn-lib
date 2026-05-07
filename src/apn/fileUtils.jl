@@ -99,15 +99,20 @@ function precomputed_tuple_row(n::Int, index::Int; tuples_dir::String = default_
     return rows[index]
 end
 
-function precomputed_tuple_sboxes(n::Int, index::Int; tuples_dir::String = default_tuples_dir())
-    tuple_lut = precomputed_tuple_row(n, index, tuples_dir = tuples_dir)
+function split_tuple_luts(tuple_lut::AbstractVector{<:Integer}, n::Int)
     sbox_size = 2^n
-    length(tuple_lut) == 2 * sbox_size || error("Tuple row for n = $n must have $(2 * sbox_size) entries")
+    length(tuple_lut) == 2 * sbox_size || error("Tuple LUT for n = $n must have $(2 * sbox_size) entries")
 
     lut_B = tuple_lut[1:sbox_size]
     lut_A = tuple_lut[(sbox_size + 1):end]
 
     return lut_A, lut_B
+end
+
+function precomputed_tuple_sboxes(n::Int, index::Int; tuples_dir::String = default_tuples_dir())
+    tuple_lut = precomputed_tuple_row(n, index, tuples_dir = tuples_dir)
+
+    return split_tuple_luts(tuple_lut, n)
 end
 
 function lut_to_matrix(lut::AbstractVector{<:Integer}, n::Int)::Matrix{Int}
@@ -125,12 +130,7 @@ function lut_to_matrix(lut::AbstractVector{<:Integer}, n::Int)::Matrix{Int}
 end
 
 function extract_matrices_from_tuple_lut(tuple_lut::AbstractVector{<:Integer}, n::Int)
-    sbox_size = 2^n
-    length(tuple_lut) == 2 * sbox_size || error("Tuple LUT for n = $n must have $(2 * sbox_size) entries")
-
-    lut_B = tuple_lut[1:sbox_size]
-    lut_A = tuple_lut[(sbox_size + 1):end]
-
+    lut_A, lut_B = split_tuple_luts(tuple_lut, n)
     A = lut_to_matrix(lut_A, n)
     B = lut_to_matrix(lut_B, n)
 
@@ -155,6 +155,15 @@ function int_vector_literal(values::AbstractVector{<:Integer})
     return "Int[$(join((string(Int(value)) for value in values), ", "))]"
 end
 
+function tuple_matrix_constant_names(n::Int, index::Int)
+    prefix = "ALL_TUPLES_$(n)_$(index)"
+    return (
+        tuple = "$(prefix)_TUPLE",
+        A = "$(prefix)_A",
+        B = "$(prefix)_B",
+    )
+end
+
 function write_julia_tuple_matrix_constants(file, n::Int, rows::Vector{Vector{Int}})
     write(file, "# This file is generated from tuples/AllTuples$n.h.\n")
     write(file, "# Regenerate it with generate_tuple_matrix_constants_file($n).\n")
@@ -162,14 +171,12 @@ function write_julia_tuple_matrix_constants(file, n::Int, rows::Vector{Vector{In
     write(file, "const N_TUPLE_MATRIX_BLOCKS_$n = $(length(rows))\n\n")
 
     for index in 1:length(rows)
-        tuple_name = "ALL_TUPLES_$(n)_$(index)_TUPLE"
-        a_name = "ALL_TUPLES_$(n)_$(index)_A"
-        b_name = "ALL_TUPLES_$(n)_$(index)_B"
+        names = tuple_matrix_constant_names(n, index)
         A, B = extract_matrices_from_tuple_lut(rows[index], n)
 
-        write(file, "const $tuple_name = Int[$(join(rows[index], ", "))]\n")
-        write(file, "const $a_name = $(matrix_literal(A))\n")
-        write(file, "const $b_name = $(matrix_literal(B))\n")
+        write(file, "const $(names.tuple) = Int[$(join(rows[index], ", "))]\n")
+        write(file, "const $(names.A) = $(matrix_literal(A))\n")
+        write(file, "const $(names.B) = $(matrix_literal(B))\n")
         write(file, "\n")
     end
 end
@@ -194,11 +201,12 @@ end
 function tuple_matrix_block_from_namespace(namespace::Module, n::Int, index::Int)
     search_name = Symbol("ALL_TUPLES_$(n)_$(index)_SEARCH")
     search_result = isdefined(namespace, search_name) ? get_constant(namespace, search_name) : nothing
+    names = tuple_matrix_constant_names(n, index)
 
     return (
-        tuple = get_constant(namespace, Symbol("ALL_TUPLES_$(n)_$(index)_TUPLE")),
-        A = get_constant(namespace, Symbol("ALL_TUPLES_$(n)_$(index)_A")),
-        B = get_constant(namespace, Symbol("ALL_TUPLES_$(n)_$(index)_B")),
+        tuple = get_constant(namespace, Symbol(names.tuple)),
+        A = get_constant(namespace, Symbol(names.A)),
+        B = get_constant(namespace, Symbol(names.B)),
         search = search_result,
     )
 end
@@ -228,6 +236,229 @@ function precomputed_tuple_matrices(n::Int, index::Int; tuples_dir::String = def
     return block.A, block.B
 end
 
+function all_precomputed_tuple_class_indices(n::Int; tuples_dir::String = default_tuples_dir())::Vector{Int}
+    blocks = load_precomputed_tuple_matrix_constants(n, tuples_dir = tuples_dir)
+    return collect(1:length(blocks))
+end
+
+function int_class_list(class_indices)::Vector{Int}
+    class_indices isa Integer && return [Int(class_indices)]
+    class_indices isa AbstractVector && return Int.(class_indices)
+    error("class list must be an integer or a vector of integers")
+end
+
+function parse_class_indices_argument(value::AbstractString)
+    stripped_value = strip(value)
+    stripped_value in ("all", ":all") && return "all"
+
+    if startswith(stripped_value, "[") && endswith(stripped_value, "]")
+        stripped_value = strip(stripped_value[2:(end - 1)])
+    end
+
+    isempty(stripped_value) && return Int[]
+    occursin(",", stripped_value) && return [parse(Int, strip(item)) for item in split(stripped_value, ",") if !isempty(strip(item))]
+    return parse(Int, stripped_value)
+end
+
+function normalize_precomputed_tuple_classes(n::Int, class_indices;
+                                             excluded_class_indices = Int[],
+                                             tuples_dir::String = default_tuples_dir())::Vector{Int}
+    parsed_class_indices = class_indices isa AbstractString ? parse_class_indices_argument(class_indices) : class_indices
+    selected_classes =
+        parsed_class_indices == "all" || parsed_class_indices == :all ? all_precomputed_tuple_class_indices(n, tuples_dir = tuples_dir) :
+        parsed_class_indices isa Integer ? [Int(parsed_class_indices)] :
+        parsed_class_indices isa AbstractVector ? Int.(parsed_class_indices) :
+        error("class_indices must be \"all\", :all, an integer, a vector of integers, or a string like \"[1, 4]\"")
+
+    excluded_classes = Set(int_class_list(excluded_class_indices))
+    available_classes = Set(all_precomputed_tuple_class_indices(n, tuples_dir = tuples_dir))
+    normalized_classes = sort!(unique(selected_classes))
+
+    for class_index in normalized_classes
+        class_index in available_classes || error("Tuple index must be between 1 and $(length(available_classes)) for n = $n")
+    end
+
+    return [class_index for class_index in normalized_classes if !(class_index in excluded_classes)]
+end
+
+const DEFAULT_MONOMIAL_REPRESENTATIVE_DIMENSION = 7
+const N7_MONOMIAL_REPRESENTATIVE_EXPONENTS = [5, 9, 63, 78, 85, 88]
+
+function candidate_exponents_for_dimension(n::Int)::Vector{Int}
+    n == 7 && return N7_MONOMIAL_REPRESENTATIVE_EXPONENTS
+    return collect(1:(2^n - 2))
+end
+
+function search_classes_from_saved_file(n::Int; tuples_dir::String = default_tuples_dir())::Vector{Int}
+    pattern = Regex("^const ALL_TUPLES_$(n)_(\\d+)_SEARCH\\b")
+    classes = Int[]
+    filename = joinpath(tuples_dir, "AllTuplesMatrices$n.jl")
+
+    for line in eachline(filename)
+        match_result = match(pattern, line)
+        match_result === nothing && continue
+        push!(classes, parse(Int, match_result.captures[1]))
+    end
+
+    return sort!(classes)
+end
+
+function precomputed_gf2_matrix_pair(n::Int, class_index::Int; tuples_dir::String = default_tuples_dir())
+    A, B = precomputed_tuple_matrices(n, class_index, tuples_dir = tuples_dir)
+    A_gf2 = _ensure_gf2_matrix(A, n, name = "A")
+    B_gf2 = _ensure_gf2_matrix(B, n, name = "B")
+
+    return A_gf2, B_gf2
+end
+
+function is_admissible_monomial_for_class(exponent::Int, n::Int, class_index::Int;
+                                          tuples_dir::String = default_tuples_dir())::Bool
+    A, B = precomputed_gf2_matrix_pair(n, class_index, tuples_dir = tuples_dir)
+
+    return matrix_is_similar(A^exponent, B) ||
+           matrix_is_similar(A^(exponent - 1), B)
+end
+
+function find_admissible_monomials_for_class(n::Int, class_index::Int;
+                                             candidate_exponents::Vector{Int} = collect(1:(2^n - 2)),
+                                             tuples_dir::String = default_tuples_dir())
+    A, B = precomputed_tuple_matrices(n, class_index, tuples_dir = tuples_dir)
+    if !proposition5_filter(A, B, n)
+        return Int[]
+    end
+
+    return [
+        exponent for exponent in candidate_exponents
+        if is_admissible_monomial_for_class(exponent, n, class_index, tuples_dir = tuples_dir)
+    ]
+end
+
+function final_monomial_representatives_for_class(n::Int, class_index::Int;
+                                                  candidate_exponents::Vector{Int} = candidate_exponents_for_dimension(n),
+                                                  selection::Symbol = :all,
+                                                  tuples_dir::String = default_tuples_dir())
+    representatives = find_admissible_monomials_for_class(
+        n,
+        class_index,
+        candidate_exponents = candidate_exponents,
+        tuples_dir = tuples_dir,
+    )
+
+    if selection == :minimum
+        return isempty(representatives) ? Int[] : [minimum(representatives)]
+    elseif selection == :all
+        return representatives
+    end
+
+    error("Unsupported representative selection: $selection")
+end
+
+expected_monomial_representatives_for_class(args...; kwargs...) =
+    final_monomial_representatives_for_class(args...; kwargs...)
+
+function format_monomial_representatives(representatives::Vector{Int})::String
+    return isempty(representatives) ? "[]" : join(("x^$exponent" for exponent in representatives), ", ")
+end
+
+function print_admissible_monomials_for_class(n::Int, class_index::Int;
+                                              candidate_exponents::Vector{Int} = candidate_exponents_for_dimension(n),
+                                              selection::Symbol = :all,
+                                              tuples_dir::String = default_tuples_dir())
+    representatives = final_monomial_representatives_for_class(
+        n,
+        class_index,
+        candidate_exponents = candidate_exponents,
+        selection = selection,
+        tuples_dir = tuples_dir,
+    )
+    formatted = format_monomial_representatives(representatives)
+    println("ALL_TUPLES_$(n)_$(class_index)_EXPECTED_MONOMIAL_REPRESENTATIVES: $formatted")
+
+    return representatives
+end
+
+function find_monomial_representative_for_class(class_index::Int,
+                                                n::Int = DEFAULT_MONOMIAL_REPRESENTATIVE_DIMENSION;
+                                                tuples_dir::String = default_tuples_dir())
+    representatives = final_monomial_representatives_for_class(
+        n,
+        class_index,
+        candidate_exponents = N7_MONOMIAL_REPRESENTATIVE_EXPONENTS,
+        selection = :minimum,
+        tuples_dir = tuples_dir,
+    )
+    isempty(representatives) && return Int[]
+
+    println("x |-> x^$(first(representatives))")
+    return representatives
+end
+
+function representative_selection_for_class(class_index::Int)::Symbol
+    return class_index == 1 ? :all : :minimum
+end
+
+function normalize_classes_to_compute(n::Int, classes_to_compute;
+                                      tuples_dir::String = default_tuples_dir())::Vector{Int}
+    classes_to_compute == "all" && return search_classes_from_saved_file(n, tuples_dir = tuples_dir)
+    classes_to_compute isa Integer && return [Int(classes_to_compute)]
+    classes_to_compute isa AbstractVector && return sort!(Int.(classes_to_compute))
+
+    error("classes_to_compute must be \"all\", an integer, or a vector of integers")
+end
+
+function compute_monomial_representatives(n::Int, classes_to_compute;
+                                          candidate_exponents::Vector{Int} = candidate_exponents_for_dimension(n),
+                                          tuples_dir::String = default_tuples_dir())
+    classes = normalize_classes_to_compute(n, classes_to_compute, tuples_dir = tuples_dir)
+    results = Dict{Int, Vector{Int}}()
+
+    for class_index in classes
+        results[class_index] = final_monomial_representatives_for_class(
+            n,
+            class_index,
+            candidate_exponents = candidate_exponents,
+            selection = representative_selection_for_class(class_index),
+            tuples_dir = tuples_dir,
+        )
+    end
+
+    return results
+end
+
+compute_expected_monomial_representatives(args...; kwargs...) =
+    compute_monomial_representatives(args...; kwargs...)
+
+function parse_classes_argument(value::String)
+    value == "all" && return "all"
+    occursin(",", value) && return [parse(Int, item) for item in split(value, ",") if !isempty(item)]
+    return parse(Int, value)
+end
+
+function print_monomial_representatives(n::Int, classes_to_compute;
+                                        candidate_exponents::Vector{Int} = candidate_exponents_for_dimension(n),
+                                        tuples_dir::String = default_tuples_dir())
+    results = compute_monomial_representatives(
+        n,
+        classes_to_compute,
+        candidate_exponents = candidate_exponents,
+        tuples_dir = tuples_dir,
+    )
+
+    for class_index in sort(collect(keys(results)))
+        representatives = results[class_index]
+        formatted = format_monomial_representatives(representatives)
+        println("ALL_TUPLES_$(n)_$(class_index)_EXPECTED_MONOMIAL_REPRESENTATIVES: $formatted")
+    end
+
+    return results
+end
+
+function run_monomial_representative_cli(args = ARGS)
+    n = isempty(args) ? DEFAULT_MONOMIAL_REPRESENTATIVE_DIMENSION : parse(Int, args[1])
+    classes_to_compute = length(args) < 2 ? "all" : parse_classes_argument(args[2])
+    return print_monomial_representatives(n, classes_to_compute)
+end
+
 function search_result_constant_name(n::Int, class_index::Int)::String
     return "ALL_TUPLES_$(n)_$(class_index)_SEARCH"
 end
@@ -252,8 +483,8 @@ function save_search_result_constant(sbox::AbstractVector{<:Integer}, n::Int, cl
     if occursin(existing_pattern, text)
         text = replace(text, existing_pattern => constant_line)
     else
-        b_name = "ALL_TUPLES_$(n)_$(class_index)_B"
-        b_pattern = Regex("(?m)^const\\s+$b_name\\s*=\\s*Int\\[[^\\n]*\\]\\n")
+        names = tuple_matrix_constant_names(n, class_index)
+        b_pattern = Regex("(?m)^const\\s+$(names.B)\\s*=\\s*Int\\[[^\\n]*\\]\\n")
 
         if occursin(b_pattern, text)
             text = replace(text, b_pattern => s -> s * constant_line * "\n")
@@ -288,11 +519,10 @@ function write_c_array(file, rows)
     write(file, "#define N_TUPLES $(length(rows))\n\n")
     write(file, "int AllTuples[N_TUPLES][$row_size] = {\n")
 
-    for i in 1:length(rows)
-        row = rows[i]
+    for (index, row) in pairs(rows)
         row_text = join(row, ", ")
 
-        if i < length(rows)
+        if index < length(rows)
             write(file, "    {$row_text},\n")
         else
             write(file, "    {$row_text}\n")
