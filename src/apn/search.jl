@@ -503,7 +503,7 @@ end
 function APNSearchClasses(n::Int, class_indices = "all";
                           excluded_class_indices = Int[],
                           max_solutions::Int = 1,
-                          on_solution::Function = (class_index, sbox) -> println("class $class_index: $sbox" ),
+                          on_solution::Function = (class_index, sbox) -> println("class $class_index: $sbox"),
                           save_results::Bool = true,
                           timeout_seconds::Union{Nothing, Real} = nothing,
                           seed_zero::Bool = true,

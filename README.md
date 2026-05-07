@@ -131,17 +131,3 @@ You can also print the polynomial directly from a solution returned by the searc
 sbox = solutions[1]
 println(format_sbox_polynomial(sbox, n))
 ```
-
-For the monomial representative check script, use:
-
-```julia
-include("src/apagar/teste.jl")
-
-find_monomial_representative_for_class(1, 7)
-```
-
-This prints a representative in the paper format:
-
-```text
-x |-> x^5
-```

@@ -26,7 +26,7 @@ end
 
 @testset "Tuple Matrix Constant Extraction" begin
     row = precomputed_tuple_row(6, 1)
-    A_from_lut, B_from_lut = extract_matrices(row, 6)
+    A_from_lut, B_from_lut = extract_matrices_from_tuple_lut(row, 6)
     A_from_file, B_from_file = precomputed_tuple_matrices(6, 1)
 
     expected_A = [
