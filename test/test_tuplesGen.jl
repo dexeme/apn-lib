@@ -8,6 +8,9 @@ using APNLib
 
     @test check_order_space(identity3, 2) == 3.0
     @test matrix_to_sbox(identity3) == collect(0:7)
+    @test permutation_cycle_structure([0, 2, 1, 3]) == [1, 1, 2]
+    @test matrix_cycle_structure(identity3) == ones(Int, 8)
+    @test same_cycle_structure(identity3, identity3) == true
     @test is_permutation_tuple(identity3, identity3) == true
 
     rows = load_precomputed_tuple_constants(6)

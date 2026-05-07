@@ -151,6 +151,10 @@ function matrix_literal(matrix::AbstractMatrix{<:Integer})
     return "Int[" * join(rows, "; ") * "]"
 end
 
+function int_vector_literal(values::AbstractVector{<:Integer})
+    return "Int[$(join((string(Int(value)) for value in values), ", "))]"
+end
+
 function write_julia_tuple_matrix_constants(file, n::Int, rows::Vector{Vector{Int}})
     write(file, "# This file is generated from tuples/AllTuples$n.h.\n")
     write(file, "# Regenerate it with generate_tuple_matrix_constants_file($n).\n")
@@ -188,10 +192,14 @@ function generate_tuple_matrix_constants_files(ns; tuples_dir::String = default_
 end
 
 function tuple_matrix_block_from_namespace(namespace::Module, n::Int, index::Int)
+    search_name = Symbol("ALL_TUPLES_$(n)_$(index)_SEARCH")
+    search_result = isdefined(namespace, search_name) ? get_constant(namespace, search_name) : nothing
+
     return (
         tuple = get_constant(namespace, Symbol("ALL_TUPLES_$(n)_$(index)_TUPLE")),
         A = get_constant(namespace, Symbol("ALL_TUPLES_$(n)_$(index)_A")),
         B = get_constant(namespace, Symbol("ALL_TUPLES_$(n)_$(index)_B")),
+        search = search_result,
     )
 end
 
@@ -218,6 +226,46 @@ function precomputed_tuple_matrices(n::Int, index::Int; tuples_dir::String = def
 
     block = blocks[index]
     return block.A, block.B
+end
+
+function search_result_constant_name(n::Int, class_index::Int)::String
+    return "ALL_TUPLES_$(n)_$(class_index)_SEARCH"
+end
+
+function tuple_matrix_constants_filename(n::Int)
+    return joinpath(default_tuples_dir(), "AllTuplesMatrices$n.jl")
+end
+
+function save_search_result_constant(sbox::AbstractVector{<:Integer}, n::Int, class_index::Int)
+    space_size = 2^n
+    length(sbox) == space_size || error("Search result for n = $n must have $space_size entries")
+    1 <= class_index || error("class_index must be positive")
+
+    filename = tuple_matrix_constants_filename(n)
+    isfile(filename) || error("Precomputed matrix constants file not found: $filename")
+
+    constant_name = search_result_constant_name(n, class_index)
+    constant_line = "const $constant_name = $(int_vector_literal(sbox))"
+    text = read(filename, String)
+
+    existing_pattern = Regex("(?m)^const\\s+$constant_name\\s*=\\s*Int\\[[^\\n]*\\]\$")
+    if occursin(existing_pattern, text)
+        text = replace(text, existing_pattern => constant_line)
+    else
+        b_name = "ALL_TUPLES_$(n)_$(class_index)_B"
+        b_pattern = Regex("(?m)^const\\s+$b_name\\s*=\\s*Int\\[[^\\n]*\\]\\n")
+
+        if occursin(b_pattern, text)
+            text = replace(text, b_pattern => s -> s * constant_line * "\n")
+        else
+            text *= "\n$constant_line\n"
+        end
+    end
+
+    write(filename, text)
+    delete!(PRECOMPUTED_TUPLE_MATRIX_CACHE, n)
+
+    return filename
 end
 
 function tuple_to_sbox_row(tuple)

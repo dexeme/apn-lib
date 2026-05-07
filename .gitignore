@@ -9,3 +9,5 @@ apagar
 .pytest_cache
 .vscode
 *.iml
+/src/apagar/
+/codigo_referencia/

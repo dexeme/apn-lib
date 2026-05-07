@@ -1,5 +1,5 @@
-# todo: rodar esse codigo https://github.com/cbe90/self_equivalent_apn/blob/v1.1/8bit/8bit_class1/README.txt
-# todo: investigar essa bomba https://zenodo.org/records/6983500
+# todo: run this code https://github.com/cbe90/self_equivalent_apn/blob/v1.1/8bit/8bit_class1/README.txt
+# todo: investigate this dataset https://zenodo.org/records/6983500
 
 #= This code extracts the APN (Almost Perfect Nonlinear) matrix from a given S-box.
 The function `extract_apn_matrix` takes an S-box represented as a vector of integers and
@@ -11,20 +11,24 @@ The code also includes an example S-box and prints the extracted APN matrix. =#
 # Reference: Weng et al. - On Quadratic Almost Perfect Nonlinear Functions and Their Related Algebraic Object
 
 
-# todo: basicamente agor aeu ja tenho o codigo para gerar as tuplas; o que eu preciso fazer agora é
-# implementar o algoritmo 1 do artigo, mas primeiro eles fazem um pre processamento, ou seja, eles aplicam as proposicoes 4 e 5
-# para reduzir o espaço de busca, entao daria pra fazer isso primeiro, assim eu ja validaria pq eles dizem que eliminou x tuplas
+# todo: the tuple generation code is available now; the next step is to
+# implement Algorithm 1 from the paper. They first run preprocessing with Propositions 4 and 5
+# to reduce the search space, so this can be done first to validate the tuple counts reported in the paper.
 #
-#Para n=6: Elas cortam 8 das 17 tuplas instantaneamente.
-#Para n=7: Elas excluem 13 das 27 tuplas.
-#Para n=8: Elas eliminam 15 das 32 tuplas.
+# For n=6: these filters remove 8 of the 17 tuples immediately.
+# For n=7: these filters remove 13 of the 27 tuples.
+# For n=8: these filters remove 15 of the 32 tuples.
 #
 #
-#De acordo com a Tabela 1 do artigo, ao passar as suas 17 tuplas pelos filtros, seu código deve apresentar exatamente este comportamento:
+# According to Table 1 from the paper, running the 17 tuples through the filters should give exactly this behavior:
 #
-#    A Proposição 4 (que verifica se as dimensões dos subespaços afins caem nos tamanhos proibidos de 2, 4 ou n−1)
-#   deve descartar automaticamente as Classes 6, 9, 13, 16 e 17.
-#    A Proposição 5 (que verifica a existência de um quadrinômio que seja múltiplo dos polinômios mínimos
-# das matrizes A e B) deve descartar automaticamente as Classes 4, 8 e 12.
+#    Proposition 4 checks whether affine subspace dimensions fall into the forbidden sizes 2, 4, or n - 1.
+#    It should automatically discard Classes 6, 9, 13, 16, and 17.
+#    Proposition 5 checks whether there is a quadrinomial that is a multiple of the minimum polynomials
+#    of matrices A and B. It should automatically discard Classes 4, 8, and 12.
 
-# todo: tentar colocar em gray code as matrizes pra visualizar melhor as diferenças entre elas
+# todo: try rendering the matrices in Gray code to visualize their differences more clearly
+
+
+# todo: https://github.com/cbe90/Supplementary-code-to-Trims-and-extensions-of-quadratic-APN-functions/blob/main/search_8bit_extensions/prefixes7.h
+#https://eprint.iacr.org/2020/1515

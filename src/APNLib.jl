@@ -9,6 +9,7 @@ include("core/rcf.jl")
 include("apn/tuples.jl")
 include("apn/export.jl")
 include("apn/fileUtils.jl")
+include("../apn.jl")
 include("apn/search.jl")
 
 export gf2
@@ -29,6 +30,9 @@ export matrix_multiplicative_order,
 export check_order_space,
        proposition4_filter,
        proposition5_filter,
+       standard_visit_order,
+       offset_visit_order,
+       c_reference_visit_order,
        addDDTInformation,
        removeDDTInformation,
        isComplete,
@@ -40,7 +44,11 @@ export check_order_space,
        int_to_field_element,
        interpolate_sbox_polynomial,
        format_sbox_polynomial,
+       is_apn,
        matrix_to_sbox,
+       permutation_cycle_structure,
+       matrix_cycle_structure,
+       same_cycle_structure,
        is_permutation_tuple,
        is_power_similar,
        is_extended_power_similar,
@@ -61,6 +69,8 @@ export generate_tuples_file,
        precomputed_tuple_matrices,
        precomputed_tuple_row,
        precomputed_tuple_sboxes,
+       save_search_result_constant,
+       search_result_constant_name,
        tuple_to_sbox_row,
        tuples_to_sbox_rows
 

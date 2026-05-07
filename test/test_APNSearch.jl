@@ -32,23 +32,28 @@ end
     @test format_sbox_polynomial(identity_lut, 3) == "x^1"
 end
 
-@testset "APN Search Optional CSV Output" begin
-    identity1 = reshape([1], 1, 1)
-    results_filename = tempname()
+@testset "APN Search Matrix Constant Output" begin
+    identity3 = Int[1 0 0; 0 1 0; 0 0 1]
+    constants_filename = joinpath("tuples", "AllTuplesMatrices3.jl")
+    original_text = read(constants_filename, String)
 
-    solutions = APNSearch(
-        1,
-        identity1,
-        identity1,
-        max_solutions = 1,
-        on_solution = sbox -> nothing,
-        save_results = true,
-        results_filename = results_filename,
-    )
+    try
+        solutions = APNSearch(
+            3,
+            identity3,
+            identity3,
+            max_solutions = 1,
+            on_solution = sbox -> nothing,
+            save_results = true,
+            class_index = 1,
+        )
 
-    lines = readlines(results_filename)
+        text = read(constants_filename, String)
+        expected_line = "const ALL_TUPLES_3_1_SEARCH = Int[$(join(solutions[1], ", "))]"
 
-    @test solutions == [[0, 1]]
-    @test lines[1] == "s0,s1,polynomial"
-    @test lines[2] == "0,1,\"x^1\""
+        @test length(solutions) == 1
+        @test occursin(expected_line, text)
+    finally
+        write(constants_filename, original_text)
+    end
 end

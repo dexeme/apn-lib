@@ -240,6 +240,38 @@ function matrix_to_sbox(A::FqMatrix)
     return table
 end
 
+function permutation_cycle_structure(permutation::Vector{Int})::Vector{Int}
+    size = length(permutation)
+    seen = falses(size)
+    cycle_lengths = Int[]
+
+    @inbounds for start in 0:(size - 1)
+        seen[start + 1] && continue
+
+        current = start
+        length = 0
+
+        while !seen[current + 1]
+            seen[current + 1] = true
+            length += 1
+            current = permutation[current + 1]
+            0 <= current < size || error("Permutation value out of range: $current")
+        end
+
+        push!(cycle_lengths, length)
+    end
+
+    return sort!(cycle_lengths)
+end
+
+function matrix_cycle_structure(A::FqMatrix)::Vector{Int}
+    return permutation_cycle_structure(matrix_to_sbox(A))
+end
+
+function same_cycle_structure(A::FqMatrix, B::FqMatrix)::Bool
+    return matrix_cycle_structure(A) == matrix_cycle_structure(B)
+end
+
 function is_permutation_tuple(A::FqMatrix, B::FqMatrix)
     check_compatible_pair(A, B)
 
@@ -310,6 +342,25 @@ function candidate_pairs_with_same_order(matrices::Vector{T}) where T <: FqMatri
     return candidates
 end
 
+function candidate_pairs_with_same_cycle_structure(matrices::Vector{T}) where T <: FqMatrix
+    candidates = Vector{Tuple{T, T}}()
+    cycle_structures = Dict{Int, Vector{Int}}()
+
+    for (index, matrix) in pairs(matrices)
+        cycle_structures[index] = matrix_cycle_structure(matrix)
+    end
+
+    for (i, A) in pairs(matrices)
+        for (j, B) in pairs(matrices)
+            if cycle_structures[i] == cycle_structures[j]
+                push!(candidates, (A, B))
+            end
+        end
+    end
+
+    return candidates
+end
+
 
 function remove_extended_power_similar_pairs(pairs::Vector{Tuple{T, T}}) where T <: FqMatrix
     n = length(pairs)
@@ -350,7 +401,7 @@ function gen_permutation_tuples(n::Int)::Vector{Tuple{FqMatrix, FqMatrix}}
 
     prime_order_rcfs = filter(has_prime_multiplicative_order, rcfs)
 
-    candidates = candidate_pairs_with_same_order(prime_order_rcfs)
+    candidates = candidate_pairs_with_same_cycle_structure(prime_order_rcfs)
 
     representatives = remove_extended_power_similar_pairs(candidates)
 

@@ -4,6 +4,7 @@ authors = ["Tiago"]
 [deps]
 JuliaInterpreter = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
 Nemo = "2edaba10-b0f1-5616-af89-8c11ac63239a"
+Oscar = "f1435218-dba5-11e9-1e4d-f1a5fab5fc13"
 
 [compat]
-Nemo = "0.55.0"
+Nemo = "0.54.0"
