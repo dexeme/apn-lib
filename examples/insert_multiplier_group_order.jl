@@ -6,9 +6,9 @@ db_path = joinpath(project_root, "db", "apn_functions.sqlite")
 
 table_json = read(json_path, String)
 
-updated_ids = update_apn_multiplier_group_order!(
+updated_ids = insert_invariants(
     db_path,
-    table_json;
+    [table_json];
     dimension = 7,
 )
 

@@ -110,3 +110,61 @@ end
         isfile(db_path) && rm(db_path)
     end
 end
+
+@testset "APN invariant table insert" begin
+    functions_json = """
+    [["ID","F(x)"],
+     [1,"x3"],
+     [2,"x9"]]
+    """
+    gamma_json = """
+    [["Gamma-rank","ID"],
+     [3610,"1,2"]]
+    """
+    delta_json = """
+    [["Delta-rank","ID"],
+     [198,1],
+     [210,2]]
+    """
+    multiplier_json = """
+    [["Multiplier group order","ID"],
+     [113792,1],
+     [128,2]]
+    """
+
+    db_path = tempname() * ".sqlite"
+    insert_apn_function_table_json!(
+        db_path,
+        functions_json;
+        dimension = 7,
+        modulus = "t^7+t+1",
+    )
+
+    updated_ids = insert_invariants(
+        db_path,
+        [gamma_json, delta_json, multiplier_json];
+        dimension = 7,
+    )
+
+    @test length(updated_ids) == 6
+
+    db = SQLite.DB(db_path)
+    try
+        row = first(DBInterface.execute(
+            db,
+            """
+            SELECT gamma_rank, delta_rank, multiplier_group_order
+            FROM apn_invariant
+            WHERE function_id = ?
+            """,
+            (1,),
+        ))
+
+        @test row[1] == 3610
+        @test row[2] == 198
+        @test row[3] == 113792
+    finally
+        SQLite.close(db)
+        isfile(db_path) && rm(db_path)
+    end
+end
