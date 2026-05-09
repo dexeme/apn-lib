@@ -1,146 +1,5 @@
+using JSON3
 using Nemo
-
-struct JsonCursor
-    text::String
-    index::Int
-end
-
-function skip_json_space(cursor::JsonCursor)
-    index = cursor.index
-    while index <= lastindex(cursor.text) && cursor.text[index] in (' ', '\n', '\r', '\t')
-        index = nextind(cursor.text, index)
-    end
-    return JsonCursor(cursor.text, index)
-end
-
-function expect_json_char(cursor::JsonCursor, expected::Char)
-    cursor = skip_json_space(cursor)
-    cursor.index <= lastindex(cursor.text) || error("Expected '$expected', got end of JSON")
-    cursor.text[cursor.index] == expected || error("Expected '$expected', got '$(cursor.text[cursor.index])'")
-    return JsonCursor(cursor.text, nextind(cursor.text, cursor.index))
-end
-
-function parse_json_string(cursor::JsonCursor)
-    cursor = expect_json_char(cursor, '"')
-    buffer = IOBuffer()
-    index = cursor.index
-
-    while index <= lastindex(cursor.text)
-        char = cursor.text[index]
-        if char == '"'
-            return String(take!(buffer)), JsonCursor(cursor.text, nextind(cursor.text, index))
-        elseif char == '\\'
-            escape_index = nextind(cursor.text, index)
-            escape_index <= lastindex(cursor.text) || error("Invalid JSON string escape")
-            escaped = cursor.text[escape_index]
-            if escaped == '"' || escaped == '\\' || escaped == '/'
-                print(buffer, escaped)
-            elseif escaped == 'n'
-                print(buffer, '\n')
-            elseif escaped == 'r'
-                print(buffer, '\r')
-            elseif escaped == 't'
-                print(buffer, '\t')
-            else
-                error("Unsupported JSON escape: \\$escaped")
-            end
-            index = nextind(cursor.text, escape_index)
-        else
-            print(buffer, char)
-            index = nextind(cursor.text, index)
-        end
-    end
-
-    error("Unterminated JSON string")
-end
-
-function parse_json_number(cursor::JsonCursor)
-    cursor = skip_json_space(cursor)
-    start = cursor.index
-    index = cursor.index
-
-    if index <= lastindex(cursor.text) && cursor.text[index] == '-'
-        index = nextind(cursor.text, index)
-    end
-
-    while index <= lastindex(cursor.text) && isdigit(cursor.text[index])
-        index = nextind(cursor.text, index)
-    end
-
-    start == index && error("Expected JSON integer")
-    return parse(Int, cursor.text[start:prevind(cursor.text, index)]), JsonCursor(cursor.text, index)
-end
-
-function parse_json_array(cursor::JsonCursor)
-    cursor = expect_json_char(cursor, '[')
-    values = Any[]
-    cursor = skip_json_space(cursor)
-
-    if cursor.index <= lastindex(cursor.text) && cursor.text[cursor.index] == ']'
-        return values, JsonCursor(cursor.text, nextind(cursor.text, cursor.index))
-    end
-
-    while true
-        value, cursor = parse_json_value(cursor)
-        push!(values, value)
-        cursor = skip_json_space(cursor)
-
-        if cursor.index <= lastindex(cursor.text) && cursor.text[cursor.index] == ','
-            cursor = JsonCursor(cursor.text, nextind(cursor.text, cursor.index))
-        elseif cursor.index <= lastindex(cursor.text) && cursor.text[cursor.index] == ']'
-            return values, JsonCursor(cursor.text, nextind(cursor.text, cursor.index))
-        else
-            error("Expected ',' or ']' in JSON array")
-        end
-    end
-end
-
-function parse_json_object(cursor::JsonCursor)
-    cursor = expect_json_char(cursor, '{')
-    object = Dict{String, Any}()
-    cursor = skip_json_space(cursor)
-
-    if cursor.index <= lastindex(cursor.text) && cursor.text[cursor.index] == '}'
-        return object, JsonCursor(cursor.text, nextind(cursor.text, cursor.index))
-    end
-
-    while true
-        key, cursor = parse_json_string(cursor)
-        cursor = expect_json_char(cursor, ':')
-        value, cursor = parse_json_value(cursor)
-        object[key] = value
-        cursor = skip_json_space(cursor)
-
-        if cursor.index <= lastindex(cursor.text) && cursor.text[cursor.index] == ','
-            cursor = JsonCursor(cursor.text, nextind(cursor.text, cursor.index))
-        elseif cursor.index <= lastindex(cursor.text) && cursor.text[cursor.index] == '}'
-            return object, JsonCursor(cursor.text, nextind(cursor.text, cursor.index))
-        else
-            error("Expected ',' or '}' in JSON object")
-        end
-    end
-end
-
-function parse_json_value(cursor::JsonCursor)
-    cursor = skip_json_space(cursor)
-    cursor.index <= lastindex(cursor.text) || error("Unexpected end of JSON")
-    char = cursor.text[cursor.index]
-
-    char == '{' && return parse_json_object(cursor)
-    char == '[' && return parse_json_array(cursor)
-    char == '"' && return parse_json_string(cursor)
-    (char == '-' || isdigit(char)) && return parse_json_number(cursor)
-
-    error("Unsupported JSON value starting with '$char'")
-end
-
-function parse_json_object(text::AbstractString)
-    value, cursor = parse_json_value(JsonCursor(String(text), firstindex(String(text))))
-    cursor = skip_json_space(cursor)
-    cursor.index > lastindex(cursor.text) || error("Unexpected trailing JSON content")
-    value isa Dict{String, Any} || error("Top-level JSON value must be an object")
-    return value
-end
 
 function parse_binary_field_degree(field::AbstractString)
     field_match = match(r"^GF\(2\^([0-9]+)\)$", replace(field, " " => ""))
@@ -173,18 +32,86 @@ function parse_binary_modulus(modulus::AbstractString)
     return polynomial, variable_name
 end
 
+function polynomial_json_data(json_text::AbstractString)
+    return JSON3.read(json_text)
+end
+
+function json_property(data, name::Symbol)
+    return getproperty(data, name)
+end
+
+function json_property(data::AbstractDict, name::Symbol)
+    return data[String(name)]
+end
+
+function json_has_property(data, name::Symbol)
+    return hasproperty(data, name)
+end
+
+function json_has_property(data::AbstractDict, name::Symbol)
+    return haskey(data, String(name))
+end
+
+function polynomial_json_terms(data)
+    terms = json_property(data, :terms)
+    return collect(terms)
+end
+
+function polynomial_json_dimension(data)
+    return parse_binary_field_degree(String(json_property(data, :field)))
+end
+
+function canonical_polynomial_json(data)
+    return JSON3.write(data)
+end
+
+function parse_polynomial_expression_terms(expression::AbstractString)
+    terms = Dict{String, Int}[]
+    compact_terms = split(replace(expression, " " => ""), "+")
+
+    for raw_term in compact_terms
+        isempty(raw_term) && continue
+        term_match = match(r"^(?:g([0-9]*))?x([0-9]+)$", raw_term)
+        term_match !== nothing || error("Invalid polynomial term: $raw_term")
+
+        coefficient_text = term_match.captures[1]
+        exponent = parse(Int, term_match.captures[2])
+
+        if coefficient_text === nothing
+            push!(terms, Dict("exp" => exponent, "coef" => 1))
+        else
+            coefficient_power = isempty(coefficient_text) ? 1 : parse(Int, coefficient_text)
+            push!(terms, Dict("exp" => exponent, "coef_power" => coefficient_power))
+        end
+    end
+
+    isempty(terms) && error("Polynomial expression has no terms: $expression")
+    return terms
+end
+
+function polynomial_expression_json(expression::AbstractString;
+                                    dimension::Integer,
+                                    modulus::AbstractString,
+                                    basis::AbstractString = "power")
+    return Dict(
+        "field" => "GF(2^$(Int(dimension)))",
+        "basis" => String(basis),
+        "modulus" => String(modulus),
+        "terms" => parse_polynomial_expression_terms(expression),
+    )
+end
+
 function build_polynomial_from_json(json_text::AbstractString)
-    data = parse_json_object(json_text)
+    return build_polynomial_from_json(polynomial_json_data(json_text))
+end
 
-    field_text = get(data, "field", nothing)
-    basis = get(data, "basis", nothing)
-    modulus_text = get(data, "modulus", nothing)
-    terms = get(data, "terms", nothing)
+function build_polynomial_from_json(data)
+    field_text = String(json_property(data, :field))
+    basis = String(json_property(data, :basis))
+    modulus_text = String(json_property(data, :modulus))
+    terms = polynomial_json_terms(data)
 
-    field_text isa AbstractString || error("JSON field must be a string, for example GF(2^7)")
     basis == "power" || error("Only basis = \"power\" is supported")
-    modulus_text isa AbstractString || error("JSON modulus must be a string")
-    terms isa Vector || error("JSON terms must be an array")
 
     n = parse_binary_field_degree(field_text)
     modulus, field_variable_name = parse_binary_modulus(modulus_text)
@@ -195,13 +122,27 @@ function build_polynomial_from_json(json_text::AbstractString)
     polynomial = zero(polynomial_ring_)
 
     for term in terms
-        term isa Dict{String, Any} || error("Each term must be a JSON object")
-        exponent = get(term, "exp", nothing)
-        coefficient = get(term, "coef", nothing)
-        exponent isa Integer || error("Term exp must be an integer")
-        coefficient isa Integer || error("Term coef must be an integer")
-        polynomial += int_to_field_element(coefficient, field, n) * x_variable^exponent
+        exponent = Int(json_property(term, :exp))
+        coefficient = if json_has_property(term, :coef_power)
+            gen(field)^Int(json_property(term, :coef_power))
+        else
+            int_to_field_element(Int(json_property(term, :coef)), field, n)
+        end
+        polynomial += coefficient * x_variable^exponent
     end
 
     return polynomial
+end
+
+function symbolic_apn_function_from_json(data)
+    n = polynomial_json_dimension(data)
+    terms = [x(Int(json_property(term, :exp))) for term in polynomial_json_terms(data)]
+    return APNFunction(n, terms...)
+end
+
+function normalized_support_from_json(data)
+    n = polynomial_json_dimension(data)
+    modulus = 2^n - 1
+    support = sort(unique(normalize_exponent(Int(json_property(term, :exp)), modulus) for term in polynomial_json_terms(data)))
+    return JSON3.write(support)
 end

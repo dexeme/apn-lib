@@ -12,6 +12,7 @@ include("apn/apn.jl")
 include("apn/search.jl")
 include("apn/families.jl")
 include("apn/polynomial_json.jl")
+include("apn/database.jl")
 
 export gf2
 
@@ -67,7 +68,15 @@ export check_order_space,
        parse_apn_function,
        classify_family,
        belongs_to_family,
+       parse_polynomial_expression_terms,
+       polynomial_expression_json,
        build_polynomial_from_json,
+       open_apn_database,
+       init_apn_database!,
+       insert_apn_function_json!,
+       insert_apn_functions!,
+       insert_apn_function_table_json!,
+       update_apn_gamma_ranks!,
        family_c3,
        family_c4,
        family_c5,
