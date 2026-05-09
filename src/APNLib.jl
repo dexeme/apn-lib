@@ -10,6 +10,8 @@ include("apn/tuples.jl")
 include("apn/fileUtils.jl")
 include("apn/apn.jl")
 include("apn/search.jl")
+include("apn/families.jl")
+include("apn/polynomial_json.jl")
 
 export gf2
 
@@ -51,7 +53,25 @@ export check_order_space,
        is_permutation_tuple,
        is_power_similar,
        is_extended_power_similar,
-       gen_permutation_tuples
+       gen_permutation_tuples,
+       APNCoefficient,
+       OneCoefficient,
+       PowerCoefficient,
+       APNTerm,
+       APNTraceTerm,
+       APNFunction,
+       APNFamilyMatch,
+       x,
+       pterm,
+       Tr,
+       parse_apn_function,
+       classify_family,
+       belongs_to_family,
+       build_polynomial_from_json,
+       family_c3,
+       family_c4,
+       family_c5,
+       family_c6
 
 export blocks_for_rcf,
        get_rcfs
