@@ -98,8 +98,13 @@ end
         function_count = first(DBInterface.execute(db, "SELECT COUNT(*) AS count FROM apn_function"))[1]
         representation_json = first(DBInterface.execute(
             db,
-            "SELECT representation_json FROM apn_function_representation WHERE function_id = ?",
-            (19,),
+            """
+            SELECT r.representation_json
+            FROM apn_function_representation r
+            JOIN apn_function f ON f.id = r.function_id
+            WHERE f.dimension = ? AND f.local_id = ?
+            """,
+            (7, 19),
         ))[1]
 
         @test function_count == 2
@@ -140,11 +145,38 @@ end
         modulus = "t^7+t+1",
     )
 
-    updated_ids = insert_invariants(
-        db_path,
-        [gamma_json, delta_json, multiplier_json];
-        dimension = 7,
+    invariant_columns = Dict(
+        "Gamma-rank" => "gamma_rank",
+        "Delta-rank" => "delta_rank",
+        "Multiplier group order" => "multiplier_group_order",
     )
+    updated_ids = with_apn_database(db_path) do db
+        ids = Int[]
+        SQLite.transaction(db) do
+            for table_json in [gamma_json, delta_json, multiplier_json]
+                header, rows = json_table(table_json)
+                require_json_columns(header, ["ID"])
+                value_column = only(setdiff(header, ["ID"]))
+                target_column = invariant_columns[value_column]
+
+                for row in rows
+                    data = json_row_dict(header, row)
+                    for local_id in split_int_values(data["ID"])
+                        function_id = apn_function_id(db, 7, local_id; required = true)
+                        upsert_table_values!(
+                            db,
+                            "apn_invariant",
+                            "function_id",
+                            function_id,
+                            Dict(target_column => Int(data[value_column])),
+                        )
+                        push!(ids, local_id)
+                    end
+                end
+            end
+        end
+        ids
+    end
 
     @test length(updated_ids) == 6
 
@@ -163,6 +195,78 @@ end
         @test row[1] == 3610
         @test row[2] == 198
         @test row[3] == 113792
+    finally
+        SQLite.close(db)
+        isfile(db_path) && rm(db_path)
+    end
+end
+
+@testset "APN equivalence and Walsh spectrum insert" begin
+    functions_json = """
+    [["ID","F(x)"],
+     [1,"x3"],
+     [2,"x9"]]
+    """
+    equivalence_json = """
+    [["N∘","Equivalent to","Walsh spectrum"],
+     [7.1,"Gold","Gold"],
+     [7.2,"C3","Gold"]]
+    """
+
+    db_path = tempname() * ".sqlite"
+    insert_apn_function_table_json!(
+        db_path,
+        functions_json;
+        dimension = 7,
+        modulus = "t^7+t+1",
+    )
+
+    updated_ids = with_apn_database(db_path) do db
+        ids = Int[]
+        header, rows = json_table(equivalence_json)
+        require_json_columns(header, ["N∘", "Equivalent to", "Walsh spectrum"])
+
+        SQLite.transaction(db) do
+            for row in rows
+                data = json_row_dict(header, row)
+                parts = split(string(data["N∘"]), ".")
+                dimension = parse(Int, parts[1])
+                local_id = parse(Int, parts[2])
+                function_id = apn_function_id(db, dimension, local_id; required = true)
+                update_table_values!(
+                    db,
+                    "apn_function",
+                    Dict(
+                        "equivalent_to" => String(data["Equivalent to"]),
+                        "walsh_spectrum" => String(data["Walsh spectrum"]),
+                    );
+                    where_column = "id",
+                    where_value = function_id,
+                )
+                push!(ids, Int(function_id))
+            end
+        end
+        ids
+    end
+    @test updated_ids == [1, 2]
+
+    db = SQLite.DB(db_path)
+    try
+        first_row = first(DBInterface.execute(
+            db,
+            "SELECT equivalent_to, walsh_spectrum FROM apn_function WHERE dimension = ? AND local_id = ?",
+            (7, 1),
+        ))
+        tenth_row = first(DBInterface.execute(
+            db,
+            "SELECT equivalent_to, walsh_spectrum FROM apn_function WHERE dimension = ? AND local_id = ?",
+            (7, 2),
+        ))
+
+        @test first_row[1] == "Gold"
+        @test first_row[2] == "Gold"
+        @test tenth_row[1] == "C3"
+        @test tenth_row[2] == "Gold"
     finally
         SQLite.close(db)
         isfile(db_path) && rm(db_path)

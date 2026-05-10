@@ -8,12 +8,16 @@ CREATE TABLE IF NOT EXISTS apn_family (
 
 CREATE TABLE IF NOT EXISTS apn_function (
     id INTEGER PRIMARY KEY,
+    local_id INTEGER,
     dimension INTEGER NOT NULL,
     canonical_expression TEXT NOT NULL,
     canonical_json TEXT,
     normalized_support TEXT,
+    equivalent_to TEXT,
+    walsh_spectrum TEXT,
     source_label TEXT,
-    notes TEXT
+    notes TEXT,
+    UNIQUE (dimension, local_id)
 );
 
 CREATE TABLE IF NOT EXISTS apn_function_representation (
