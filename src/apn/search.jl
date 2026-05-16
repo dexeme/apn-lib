@@ -82,7 +82,7 @@ function check_sbox_ddt_sizes(sbox::Vector{Int}, ddt::Matrix{Int})::Bool
     return true
 end
 
-function check_sbox_space_size(sbox::Vector{Int}, n::Int)::Bool
+function check_sbox_space_size(sbox::AbstractVector{<:Integer}, n::Int)::Bool
     expected_size = 2^n
     length(sbox) == expected_size || error("sbox must have $expected_size entries")
     return true
