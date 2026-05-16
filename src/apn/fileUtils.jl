@@ -100,8 +100,8 @@ function precomputed_tuple_row(n::Int, index::Int; tuples_dir::String = default_
 end
 
 function split_tuple_luts(tuple_lut::AbstractVector{<:Integer}, n::Int)
-    sbox_size = 2^n
-    length(tuple_lut) == 2 * sbox_size || error("Tuple LUT for n = $n must have $(2 * sbox_size) entries")
+    sbox_size = space_size(n)
+    check_length(tuple_lut, 2 * sbox_size, name = "Tuple LUT for n = $n")
 
     lut_B = tuple_lut[1:sbox_size]
     lut_A = tuple_lut[(sbox_size + 1):end]
@@ -116,7 +116,7 @@ function precomputed_tuple_sboxes(n::Int, index::Int; tuples_dir::String = defau
 end
 
 function lut_to_matrix(lut::AbstractVector{<:Integer}, n::Int)::Matrix{Int}
-    length(lut) == 2^n || error("LUT for n = $n must have $(2^n) entries")
+    check_space_length(lut, n, name = "LUT for n = $n")
 
     matrix = zeros(Int, n, n)
 
@@ -286,8 +286,7 @@ function tuple_matrix_constants_filename(n::Int)
 end
 
 function save_search_result_constant(sbox::AbstractVector{<:Integer}, n::Int, class_index::Int)
-    space_size = 2^n
-    length(sbox) == space_size || error("Search result for n = $n must have $space_size entries")
+    check_sbox_space_size(sbox, n, name = "Search result for n = $n")
     1 <= class_index || error("class_index must be positive")
 
     filename = tuple_matrix_constants_filename(n)

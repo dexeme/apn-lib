@@ -10,17 +10,6 @@ struct ANFVector
     coordinates::Vector{ANFCoordinate}
 end
 
-function check_lut_values(lut::AbstractVector{<:Integer}, n::Int)::Bool
-    check_sbox_space_size(lut, n)
-    space_size = 2^n
-
-    for value in lut
-        0 <= value < space_size || error("lut values must be between 0 and $(space_size - 1)")
-    end
-
-    return true
-end
-
 function field_element_lookup(field::FqField, n::Int)::Dict{FqFieldElem, Int}
     elements = field_elements(field, n)
     return Dict(element => index - 1 for (index, element) in pairs(elements))
@@ -80,7 +69,7 @@ function lut_to_univariate(lut::AbstractVector{<:Integer}, n::Int)
 end
 
 function truth_table_to_anf_coefficients(truth_table::AbstractVector{Bool}, n::Int)::BitVector
-    length(truth_table) == 2^n || error("truth table must have $(2^n) entries")
+    check_space_length(truth_table, n, name = "truth table")
     coefficients = BitVector(truth_table)
 
     # Fast Möbius transform over GF(2): after this loop, each mask stores the
@@ -98,7 +87,7 @@ function truth_table_to_anf_coefficients(truth_table::AbstractVector{Bool}, n::I
 end
 
 function anf_coefficients_to_truth_table(coefficients::BitVector, n::Int)::BitVector
-    length(coefficients) == 2^n || error("ANF coefficient vector must have $(2^n) entries")
+    check_space_length(coefficients, n, name = "ANF coefficient vector")
     truth_table = copy(coefficients)
 
     # The Möbius transform is self-inverse over GF(2).
@@ -153,13 +142,13 @@ Evaluate a vectorial ANF on every input vector.
 function anf_to_lut(anf::ANFVector)::Vector{Int}
     n = anf.n
     length(anf.coordinates) == n || error("ANF must have n coordinate functions")
-    lut = zeros(Int, 2^n)
+    lut = zeros(Int, space_size(n))
 
     for (output_index, coordinate) in pairs(anf.coordinates)
         coordinate.n == n || error("all ANF coordinates must have degree n")
         truth_table = anf_coefficients_to_truth_table(coordinate.coefficients, n)
 
-        for x_int in 0:(2^n - 1)
+        for x_int in 0:(space_size(n) - 1)
             if truth_table[x_int + 1]
                 lut[x_int + 1] |= 1 << (output_index - 1)
             end
@@ -171,17 +160,17 @@ end
 
 function lut_to_graph(lut::AbstractVector{<:Integer}, n::Int)::Vector{Tuple{Int, Int}}
     check_lut_values(lut, n)
-    return [(x, Int(lut[x + 1])) for x in 0:(2^n - 1)]
+    return [(x, Int(lut[x + 1])) for x in 0:(space_size(n) - 1)]
 end
 
 function graph_to_lut(graph::AbstractVector{<:Tuple{<:Integer, <:Integer}}, n::Int)::Vector{Int}
-    space_size = 2^n
-    length(graph) == space_size || error("graph must have $space_size pairs")
-    lut = fill(-1, space_size)
+    field_size = space_size(n)
+    check_space_length(graph, n, name = "graph", unit = "pairs")
+    lut = fill(-1, field_size)
 
     for (x, y) in graph
-        0 <= x < space_size || error("graph input values must be between 0 and $(space_size - 1)")
-        0 <= y < space_size || error("graph output values must be between 0 and $(space_size - 1)")
+        check_space_value(x, n, name = "graph input values")
+        check_space_value(y, n, name = "graph output values")
         lut[Int(x) + 1] == -1 || error("graph contains a repeated input: $x")
         lut[Int(x) + 1] = Int(y)
     end
@@ -207,4 +196,3 @@ univariate_to_anf(polynomial::FqPolyRingElem, n::Int)::ANFVector =
 
 anf_to_univariate(anf::ANFVector) =
     lut_to_univariate(anf_to_lut(anf), anf.n)
-

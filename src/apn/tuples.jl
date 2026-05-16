@@ -1,17 +1,13 @@
 using Nemo
 
 function _ensure_gf2_matrix(A::FqMatrix, n::Int; name::String = "Matrix")
-    check_square(A, name = name)
-    nrows(A) == n || error("$name must have $n rows")
-    ncols(A) == n || error("$name must have $n columns")
-    base_ring(A) == gf2() || error("$name must be over GF(2)")
+    check_gf2_matrix(A, n, name = name)
 
     return A
 end
 
 function _ensure_gf2_matrix(A::AbstractMatrix, n::Int; name::String = "Matrix")
-    check_square(A, name = name)
-    size(A) == (n, n) || error("$name must be a $n x $n matrix")
+    check_n_by_n_matrix(A, n, name = name)
 
     F = gf2()
     matrix_gf2 = zero_matrix(F, n, n)
@@ -26,13 +22,13 @@ function _ensure_gf2_matrix(A::AbstractMatrix, n::Int; name::String = "Matrix")
 end
 
 function rank_gf2(matrix::FqMatrix)::Int
-    base_ring(matrix) == gf2() || error("Matrix must be over GF(2)")
+    check_gf2_matrix(matrix)
 
     return rank(matrix)
 end
 
 function nullity_gf2(matrix::FqMatrix)::Int
-    base_ring(matrix) == gf2() || error("Matrix must be over GF(2)")
+    check_gf2_matrix(matrix)
 
     return ncols(matrix) - rank_gf2(matrix)
 end
@@ -91,8 +87,7 @@ function _ensure_gf2_bitmatrix(A::FqMatrix, n::Int; name::String = "Matrix")::Bi
 end
 
 function _ensure_gf2_bitmatrix(A::AbstractMatrix, n::Int; name::String = "Matrix")::BitMatrix
-    check_square(A, name = name)
-    size(A) == (n, n) || error("$name must be a $n x $n matrix")
+    check_n_by_n_matrix(A, n, name = name)
     matrix_bits = falses(n, n)
 
     for col in 1:n

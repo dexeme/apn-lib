@@ -5,10 +5,20 @@ export int_to_bits,
        column_vector_to_int,
        each_column_vector
 
-export check_square,
+export space_size,
+       check_length,
+       check_space_length,
+       check_integer_range,
+       check_space_value,
+       check_square,
        check_same_size,
        check_same_field,
-       check_compatible_pair
+       check_n_by_n_matrix,
+       check_gf2_matrix,
+       check_compatible_pair,
+       check_sbox_space_size,
+       check_lut_values,
+       check_sbox_ddt_sizes
 
 export matrix_multiplicative_order,
        matrix_is_similar

@@ -25,6 +25,26 @@ end
     @test isComplete([0, 1, 2, 3]) == true
 end
 
+@testset "APN Search Solution Callbacks" begin
+    observed = Vector{Vector{Int}}()
+    context = APNSearchContext(
+        2,
+        collect(0:3),
+        collect(0:3),
+        on_solution = sbox -> push!(observed, sbox),
+        verify_apn_on_solution = false,
+    )
+    sbox = [0, 1, 2, 3]
+
+    APNLib.record_complete_solution!(context, sbox)
+    sbox[2] = 0
+
+    @test context.solutions == [[0, 1, 2, 3]]
+    @test observed == [[0, 1, 2, 3]]
+    @test !hasfield(typeof(context), :save_results)
+    @test !hasfield(typeof(context), :class_index)
+end
+
 @testset "S-box Polynomial Interpolation" begin
     identity_lut = collect(0:7)
 
@@ -53,6 +73,25 @@ end
     @test sort(collect(keys(results))) == [1]
     @test length(results[1]) == 1
     @test APNSearchClasses(3, "all", excluded_class_indices = [1, 2, 3, 4], save_results = false) == Dict{Int, Vector{Vector{Int}}}()
+end
+
+@testset "APN Search Injected Result Persistence" begin
+    identity3 = Int[1 0 0; 0 1 0; 0 0 1]
+    saved = []
+
+    solutions = APNSearch(
+        3,
+        identity3,
+        identity3,
+        max_solutions = 1,
+        on_solution = sbox -> nothing,
+        save_results = true,
+        class_index = 1,
+        save_result = (sbox, n, class_index) -> push!(saved, (copy(sbox), n, class_index)),
+    )
+
+    @test length(solutions) == 1
+    @test saved == [(solutions[1], 3, 1)]
 end
 
 @testset "APN Search Matrix Constant Output" begin

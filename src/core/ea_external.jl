@@ -10,12 +10,12 @@ function lut_from_table(table::AbstractVector{<:Integer}, n::Int)::Vector{Int}
 end
 
 function lut_from_table(table::AbstractDict{<:Integer, <:Integer}, n::Int)::Vector{Int}
-    space_size = 2^n
-    lut = fill(-1, space_size)
+    field_size = space_size(n)
+    lut = fill(-1, field_size)
 
     for (x, y) in table
-        0 <= x < space_size || error("input values must be between 0 and $(space_size - 1)")
-        0 <= y < space_size || error("output values must be between 0 and $(space_size - 1)")
+        check_space_value(x, n, name = "input values")
+        check_space_value(y, n, name = "output values")
         lut[Int(x) + 1] == -1 || error("table contains a repeated input: $x")
         lut[Int(x) + 1] = Int(y)
     end
@@ -31,14 +31,14 @@ function partition_by_multiplicity(lut::Union{AbstractVector{<:Integer}, Abstrac
     multiplicities_by_value = multiplicities_sigma(normalized_lut, n, k)
     values_by_multiplicity = Dict{Int, Vector{Int}}()
 
-    for value in 0:(2^n - 1)
+    for value in 0:(space_size(n) - 1)
         multiplicity = multiplicities_by_value[value]
         push!(get!(values_by_multiplicity, multiplicity, Int[]), value)
     end
 
     multiplicities = sort!(collect(keys(values_by_multiplicity)))
     blocks = Vector{Vector{Int}}(undef, length(multiplicities))
-    block_index = zeros(Int, 2^n)
+    block_index = zeros(Int, space_size(n))
 
     for (index, multiplicity) in pairs(multiplicities)
         block = sort!(values_by_multiplicity[multiplicity])
@@ -198,9 +198,9 @@ function backtrack_external_linear_maps(left::MultiplicityPartition,
                                         basis::Vector{Int},
                                         candidate_values::Vector{Int},
                                         n::Int)::Vector{Vector{Int}}
-    length(basis) == n || error("basis must contain n elements")
-    space_size = 2^n
-    image = fill(-1, space_size)
+    check_length(basis, n, name = "basis")
+    field_size = space_size(n)
+    image = fill(-1, field_size)
     image[1] = 0
     domain_span = [0]
     image_pivots = zeros(Int, n)

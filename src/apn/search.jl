@@ -10,24 +10,9 @@ mutable struct APNSearchContext
     solutions::Vector{Vector{Int}}
     max_solutions::Int
     on_solution::Function
-    save_results::Bool
-    class_index::Union{Nothing, Int}
     deadline::Union{Nothing, Float64}
     timed_out::Bool
     verify_apn_on_solution::Bool
-end
-
-function check_sbox_ddt_sizes(sbox::Vector{Int}, ddt::Matrix{Int})::Bool
-    space_size = length(sbox)
-    check_square(ddt, name = "ddt")
-    size(ddt) == (space_size, space_size) || error("ddt must be $space_size x $space_size")
-    return true
-end
-
-function check_sbox_space_size(sbox::AbstractVector{<:Integer}, n::Int)::Bool
-    expected_size = 2^n
-    length(sbox) == expected_size || error("sbox must have $expected_size entries")
-    return true
 end
 
 function even_hamming_weight_differences(space_size::Int)::Vector{Int}
@@ -99,12 +84,12 @@ function nextFreePosition(sbox::Vector{Int}, visit_order::Vector{Int})::Int
 end
 
 function standard_visit_order(n::Int)::Vector{Int}
-    return collect(0:(2^n - 1))
+    return collect(0:(space_size(n) - 1))
 end
 
 function offset_visit_order(n::Int, offset::Int)::Vector{Int}
-    space_size = 2^n
-    return [mod(index + offset, space_size) for index in 0:(space_size - 1)]
+    field_size = space_size(n)
+    return [mod(index + offset, field_size) for index in 0:(field_size - 1)]
 end
 
 function c_reference_visit_order(n::Int, class_index::Union{Nothing, Int} = nothing)::Vector{Int}
@@ -118,12 +103,11 @@ function c_reference_visit_order(n::Int, class_index::Union{Nothing, Int} = noth
 end
 
 function int_matrix_to_lut(M::AbstractMatrix, n::Int)::Vector{Int}
-    check_square(M)
-    size(M) == (n, n) || error("Matrix must be $n x $n")
-    space_size = 2^n
-    table = Vector{Int}(undef, space_size)
+    check_n_by_n_matrix(M, n)
+    field_size = space_size(n)
+    table = Vector{Int}(undef, field_size)
 
-    @inbounds for x in 0:(space_size - 1)
+    @inbounds for x in 0:(field_size - 1)
         output = 0
 
         for row in 1:n
@@ -179,35 +163,60 @@ function orbit_orders(apply_map::Vector{Int})::Vector{Int}
     return orders
 end
 
+function search_solution_callback(n::Int, on_solution::Function;
+                                  save_results::Bool = false,
+                                  class_index::Union{Nothing, Int} = nothing,
+                                  save_result::Function = save_search_result_constant)::Function
+    !save_results || class_index !== nothing || error("class_index is required when save_results is true")
+
+    if save_results
+        return solution -> begin
+            on_solution(solution)
+            save_result(solution, n, class_index)
+            nothing
+        end
+    end
+
+    return solution -> begin
+        on_solution(solution)
+        nothing
+    end
+end
+
 function APNSearchContext(n::Int, apply_A::Vector{Int}, apply_B::Vector{Int};
                           max_solutions::Int = typemax(Int),
                           on_solution::Function = sbox -> nothing,
                           save_results::Bool = false,
                           class_index::Union{Nothing, Int} = nothing,
+                          save_result::Function = save_search_result_constant,
                           visit_order::Vector{Int} = c_reference_visit_order(n, class_index),
                           timeout_seconds::Union{Nothing, Real} = nothing,
                           verify_apn_on_solution::Bool = true)
-    space_size = 2^n
-    length(apply_A) == space_size || error("apply_A must have $space_size entries")
-    length(apply_B) == space_size || error("apply_B must have $space_size entries")
-    length(visit_order) == space_size || error("visit_order must have $space_size entries")
-    !save_results || class_index !== nothing || error("class_index is required when save_results is true")
+    field_size = space_size(n)
+    check_space_length(apply_A, n, name = "apply_A")
+    check_space_length(apply_B, n, name = "apply_B")
+    check_space_length(visit_order, n, name = "visit_order")
     deadline = timeout_seconds === nothing ? nothing : time() + Float64(timeout_seconds)
+    callback = search_solution_callback(
+        n,
+        on_solution,
+        save_results = save_results,
+        class_index = class_index,
+        save_result = save_result,
+    )
 
     return APNSearchContext(
         n,
-        space_size,
+        field_size,
         orbit_orders(apply_A),
         orbit_orders(apply_B),
         apply_A,
         apply_B,
         visit_order,
-        falses(space_size),
+        falses(field_size),
         Vector{Vector{Int}}(),
         max_solutions,
-        on_solution,
-        save_results,
-        class_index,
+        callback,
         deadline,
         false,
         verify_apn_on_solution,
@@ -223,41 +232,46 @@ function APNSearchContext(n::Int;
                           on_solution::Function = sbox -> nothing,
                           save_results::Bool = false,
                           class_index::Union{Nothing, Int} = nothing,
+                          save_result::Function = save_search_result_constant,
                           visit_order::Vector{Int} = c_reference_visit_order(n, class_index),
                           timeout_seconds::Union{Nothing, Real} = nothing,
                           verify_apn_on_solution::Bool = true)
-    space_size = 2^n
-    !save_results || class_index !== nothing || error("class_index is required when save_results is true")
+    field_size = space_size(n)
+    callback = search_solution_callback(
+        n,
+        on_solution,
+        save_results = save_results,
+        class_index = class_index,
+        save_result = save_result,
+    )
 
-    apply_A_values = Vector{Int}(undef, space_size)
-    apply_B_values = Vector{Int}(undef, space_size)
-    ord_A_values = Vector{Int}(undef, space_size)
-    ord_B_values = Vector{Int}(undef, space_size)
+    apply_A_values = Vector{Int}(undef, field_size)
+    apply_B_values = Vector{Int}(undef, field_size)
+    ord_A_values = Vector{Int}(undef, field_size)
+    ord_B_values = Vector{Int}(undef, field_size)
 
-    @inbounds for x in 0:(space_size - 1)
+    @inbounds for x in 0:(field_size - 1)
         apply_A_values[x + 1] = apply_A(x)
         apply_B_values[x + 1] = apply_B(x)
         ord_A_values[x + 1] = ord_A(x)
         ord_B_values[x + 1] = ord_B(x)
     end
 
-    length(visit_order) == space_size || error("visit_order must have $space_size entries")
+    check_space_length(visit_order, n, name = "visit_order")
     deadline = timeout_seconds === nothing ? nothing : time() + Float64(timeout_seconds)
 
     return APNSearchContext(
         n,
-        space_size,
+        field_size,
         ord_A_values,
         ord_B_values,
         apply_A_values,
         apply_B_values,
         visit_order,
-        falses(space_size),
+        falses(field_size),
         Vector{Vector{Int}}(),
         max_solutions,
-        on_solution,
-        save_results,
-        class_index,
+        callback,
         deadline,
         false,
         verify_apn_on_solution,
@@ -286,7 +300,6 @@ end
 function record_complete_solution!(context::APNSearchContext, sbox::Vector{Int})
     solution = copy(sbox)
     solution_is_apn = is_apn(solution)
-    println("solution_is_apn = $solution_is_apn")
 
     if context.verify_apn_on_solution && !solution_is_apn
         error("Completed S-box is not APN")
@@ -294,10 +307,6 @@ function record_complete_solution!(context::APNSearchContext, sbox::Vector{Int})
 
     push!(context.solutions, solution)
     context.on_solution(solution)
-
-    if context.save_results
-        save_search_result_constant(solution, context.n, context.class_index)
-    end
 
     return context.solutions
 end
@@ -377,11 +386,12 @@ function nextVal(depth::Int, sbox::Vector{Int}, ddt::Matrix{Int};
                  on_solution::Function = sbox -> nothing,
                  save_results::Bool = false,
                  class_index::Union{Nothing, Int} = nothing,
+                 save_result::Function = save_search_result_constant,
                  visit_order::Union{Nothing, Vector{Int}} = nothing,
                  timeout_seconds::Union{Nothing, Real} = nothing,
                  verify_apn_on_solution::Bool = true)
     n = trailing_zeros(length(sbox))
-    2^n == length(sbox) || error("sbox length must be a power of 2")
+    space_size(n) == length(sbox) || error("sbox length must be a power of 2")
     selected_visit_order = visit_order === nothing ? c_reference_visit_order(n, class_index) : visit_order
 
     context = APNSearchContext(
@@ -394,6 +404,7 @@ function nextVal(depth::Int, sbox::Vector{Int}, ddt::Matrix{Int};
         on_solution = on_solution,
         save_results = save_results,
         class_index = class_index,
+        save_result = save_result,
         visit_order = selected_visit_order,
         timeout_seconds = timeout_seconds,
         verify_apn_on_solution = verify_apn_on_solution,
@@ -405,11 +416,12 @@ end
 
 function APNSearch(n::Int, A, B;
                    max_solutions::Int = typemax(Int),
-                   on_solution::Function = sbox -> println(sbox),
-                   sbox::Vector{Int} = fill(-1, 2^n),
-                   ddt::Matrix{Int} = zeros(Int, 2^n, 2^n),
+                   on_solution::Function = sbox -> nothing,
+                   sbox::Vector{Int} = fill(-1, space_size(n)),
+                   ddt::Matrix{Int} = zeros(Int, space_size(n), space_size(n)),
                    save_results::Bool = false,
                    class_index::Union{Nothing, Int} = nothing,
+                   save_result::Function = save_search_result_constant,
                    visit_order::Vector{Int} = c_reference_visit_order(n, class_index),
                    timeout_seconds::Union{Nothing, Real} = nothing,
                    seed_zero::Bool = true,
@@ -433,6 +445,7 @@ function APNSearch(n::Int, A, B;
         on_solution = on_solution,
         save_results = save_results,
         class_index = class_index,
+        save_result = save_result,
         visit_order = visit_order,
         timeout_seconds = timeout_seconds,
         verify_apn_on_solution = verify_apn_on_solution,
@@ -445,8 +458,9 @@ end
 function APNSearchClasses(n::Int, class_indices = "all";
                           excluded_class_indices = Int[],
                           max_solutions::Int = 1,
-                          on_solution::Function = (class_index, sbox) -> println("class $class_index: $sbox"),
+                          on_solution::Function = (class_index, sbox) -> nothing,
                           save_results::Bool = true,
+                          save_result::Function = save_search_result_constant,
                           timeout_seconds::Union{Nothing, Real} = nothing,
                           seed_zero::Bool = true,
                           verify_apn_on_solution::Bool = true,
@@ -469,6 +483,7 @@ function APNSearchClasses(n::Int, class_indices = "all";
             on_solution = sbox -> on_solution(class_index, sbox),
             save_results = save_results,
             class_index = class_index,
+            save_result = save_result,
             visit_order = c_reference_visit_order(n, class_index),
             timeout_seconds = timeout_seconds,
             seed_zero = seed_zero,
