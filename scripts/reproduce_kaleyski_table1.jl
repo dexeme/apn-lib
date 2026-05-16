@@ -30,10 +30,21 @@ function print_markdown_table(rows)
     println("|---:|:---|:---|---:|---:|---:|:---:|")
 
     for row in rows
-        time = string(round(row.time; digits = 6))
-        ok = row.ok ? "yes" : "no"
-        println("| $(row.n) | $(row.id) | $(row.equation) | $time | $(row.permutations) | $(row.expected) | $ok |")
+        print_markdown_row(row)
     end
+end
+
+function print_markdown_header()
+    println("| n | ID | Equation | Time | Permutations | Expected | OK |")
+    println("|---:|:---|:---|---:|---:|---:|:---:|")
+    flush(stdout)
+end
+
+function print_markdown_row(row)
+    time = string(round(row.time; digits = 6))
+    ok = row.ok ? "yes" : "no"
+    println("| $(row.n) | $(row.id) | $(row.equation) | $time | $(row.permutations) | $(row.expected) | $ok |")
+    flush(stdout)
 end
 
 function selected_cases()
@@ -57,8 +68,15 @@ end
 function main()
     cases = selected_cases()
     @info "Running Kaleyski Table 1 cases" cases = length(cases)
-    rows = [run_kaleyski_table1_case(case) for case in cases]
-    print_markdown_table(rows)
+    print_markdown_header()
+
+    rows = []
+    for (index, case) in pairs(cases)
+        @info "Starting Kaleyski Table 1 case" index total = length(cases) n = case.n id = case.id
+        row = run_kaleyski_table1_case(case)
+        push!(rows, row)
+        print_markdown_row(row)
+    end
 end
 
 main()

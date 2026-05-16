@@ -39,6 +39,15 @@ export MultiplicityPartition,
        backtrack_external_linear_maps,
        reconstruct_external_linear_maps
 
+export InternalReconstructionData,
+       build_o3_sets,
+       restrict_internal_domains,
+       optimized_internal_basis,
+       prepare_internal_reconstruction,
+       affine_lut,
+       reconstruct_internal_affine_maps,
+       algorithm3_reconstruct_internal
+
 export ANFCoordinate,
        ANFVector,
        field_element_to_int,
