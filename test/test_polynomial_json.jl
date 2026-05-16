@@ -167,8 +167,8 @@ end
                             db,
                             "apn_invariant",
                             "function_id",
-                            function_id,
-                            Dict(target_column => Int(data[value_column])),
+                            apn_public_function_id(7, local_id),
+                            Dict("dimension" => 7, target_column => Int(data[value_column])),
                         )
                         push!(ids, local_id)
                     end
@@ -185,16 +185,17 @@ end
         row = first(DBInterface.execute(
             db,
             """
-            SELECT gamma_rank, delta_rank, multiplier_group_order
+            SELECT dimension, gamma_rank, delta_rank, multiplier_group_order
             FROM apn_invariant
             WHERE function_id = ?
             """,
-            (1,),
+            ("7.1",),
         ))
 
-        @test row[1] == 3610
-        @test row[2] == 198
-        @test row[3] == 113792
+        @test row[1] == 7
+        @test row[2] == 3610
+        @test row[3] == 198
+        @test row[4] == 113792
     finally
         SQLite.close(db)
         isfile(db_path) && rm(db_path)
@@ -236,12 +237,19 @@ end
                 update_table_values!(
                     db,
                     "apn_function",
-                    Dict(
-                        "equivalent_to" => String(data["Equivalent to"]),
-                        "walsh_spectrum" => String(data["Walsh spectrum"]),
-                    );
+                    Dict("equivalent_to" => String(data["Equivalent to"]));
                     where_column = "id",
                     where_value = function_id,
+                )
+                upsert_table_values!(
+                    db,
+                    "apn_invariant",
+                    "function_id",
+                    apn_public_function_id(dimension, local_id),
+                    Dict(
+                        "dimension" => dimension,
+                        "walsh_spectrum" => String(data["Walsh spectrum"]),
+                    ),
                 )
                 push!(ids, Int(function_id))
             end
@@ -254,12 +262,22 @@ end
     try
         first_row = first(DBInterface.execute(
             db,
-            "SELECT equivalent_to, walsh_spectrum FROM apn_function WHERE dimension = ? AND local_id = ?",
+            """
+            SELECT f.equivalent_to, i.walsh_spectrum
+            FROM apn_function f
+            JOIN apn_invariant i ON i.function_id = CAST(f.dimension AS TEXT) || '.' || CAST(f.local_id AS TEXT)
+            WHERE f.dimension = ? AND f.local_id = ?
+            """,
             (7, 1),
         ))
         tenth_row = first(DBInterface.execute(
             db,
-            "SELECT equivalent_to, walsh_spectrum FROM apn_function WHERE dimension = ? AND local_id = ?",
+            """
+            SELECT f.equivalent_to, i.walsh_spectrum
+            FROM apn_function f
+            JOIN apn_invariant i ON i.function_id = CAST(f.dimension AS TEXT) || '.' || CAST(f.local_id AS TEXT)
+            WHERE f.dimension = ? AND f.local_id = ?
+            """,
             (7, 2),
         ))
 
