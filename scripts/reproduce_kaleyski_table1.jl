@@ -4,13 +4,31 @@ using APNLib
 include(joinpath(@__DIR__, "..", "test", "kaleyski_table1_data.jl"))
 include(joinpath(@__DIR__, "..", "test", "fixtures", "kaleyski_table1_luts.jl"))
 
+function env_log_level()
+    return Symbol(get(ENV, "APNLIB_LOG_LEVEL", "quiet"))
+end
+
+function env_parallel()
+    value = lowercase(get(ENV, "APNLIB_PARALLEL", "auto"))
+    value == "auto" && return Threads.nthreads() > 1
+    value in ("1", "true", "yes", "on") && return true
+    value in ("0", "false", "no", "off") && return false
+    error("APNLIB_PARALLEL must be auto, true, or false")
+end
+
 function run_kaleyski_table1_case(case)
     obtained = 0
     expected = kaleyski_table1_expected_permutations(case.n, case.id)
+    log_level = env_log_level()
+    parallel = env_parallel()
 
     elapsed = @elapsed begin
         lut = KALEYSKI_TABLE1_GENERATED_LUTS[(case.n, case.id)]
-        results = reconstruct_external_linear_maps(lut, lut, case.n)
+        results = reconstruct_external_linear_maps(lut,
+                                                   lut,
+                                                   case.n,
+                                                   parallel = parallel,
+                                                   log_level = log_level)
         obtained = length(results)
     end
 
@@ -21,13 +39,15 @@ function run_kaleyski_table1_case(case)
         time = elapsed,
         permutations = obtained,
         expected = expected,
+        parallel = parallel,
+        log_level = log_level,
         ok = obtained == expected,
     )
 end
 
 function print_markdown_table(rows)
-    println("| n | ID | Equation | Time | Permutations | Expected | OK |")
-    println("|---:|:---|:---|---:|---:|---:|:---:|")
+    println("| n | ID | Equation | Time | Permutations | Expected | Parallel | Log | OK |")
+    println("|---:|:---|:---|---:|---:|---:|:---:|:---:|:---:|")
 
     for row in rows
         print_markdown_row(row)
@@ -35,15 +55,15 @@ function print_markdown_table(rows)
 end
 
 function print_markdown_header()
-    println("| n | ID | Equation | Time | Permutations | Expected | OK |")
-    println("|---:|:---|:---|---:|---:|---:|:---:|")
+    println("| n | ID | Equation | Time | Permutations | Expected | Parallel | Log | OK |")
+    println("|---:|:---|:---|---:|---:|---:|:---:|:---:|:---:|")
     flush(stdout)
 end
 
 function print_markdown_row(row)
     time = string(round(row.time; digits = 6))
     ok = row.ok ? "yes" : "no"
-    println("| $(row.n) | $(row.id) | $(row.equation) | $time | $(row.permutations) | $(row.expected) | $ok |")
+    println("| $(row.n) | $(row.id) | $(row.equation) | $time | $(row.permutations) | $(row.expected) | $(row.parallel) | $(row.log_level) | $ok |")
     flush(stdout)
 end
 
@@ -67,7 +87,7 @@ end
 
 function main()
     cases = selected_cases()
-    @info "Running Kaleyski Table 1 cases" cases = length(cases)
+    @info "Running Kaleyski Table 1 cases" cases = length(cases) threads = Threads.nthreads() parallel = env_parallel() log_level = env_log_level()
     print_markdown_header()
 
     rows = []

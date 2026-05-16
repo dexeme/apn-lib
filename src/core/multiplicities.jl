@@ -1,5 +1,57 @@
 using Nemo
 
+function fwht!(values::Vector{Int})::Vector{Int}
+    length(values) > 0 || error("FWHT input must be non-empty")
+    ispow2(length(values)) || error("FWHT input length must be a power of two")
+
+    half_block = 1
+    value_count = length(values)
+
+    while half_block < value_count
+        block = 2 * half_block
+
+        for start in 1:block:value_count
+            @inbounds for index in start:(start + half_block - 1)
+                x = values[index]
+                y = values[index + half_block]
+                values[index] = x + y
+                values[index + half_block] = x - y
+            end
+        end
+
+        half_block = block
+    end
+
+    return values
+end
+
+@inline function parity_sign(mask::Int)::Int
+    return isodd(count_ones(mask)) ? -1 : 1
+end
+
+function trace_dual_indices(n::Int)::Vector{Int}
+    field_size = space_size(n)
+    field = GF(2, n, "g")
+    elements = field_elements(field, n)
+    dual_indices = Vector{Int}(undef, field_size)
+
+    @inbounds for c in 0:(field_size - 1)
+        c_element = elements[c + 1]
+        dual_index = 0
+
+        for bit in 0:(n - 1)
+            basis_element = elements[(1 << bit) + 1]
+            if absolute_trace_bit(c_element * basis_element) == 1
+                dual_index |= 1 << bit
+            end
+        end
+
+        dual_indices[c + 1] = dual_index
+    end
+
+    return dual_indices
+end
+
 @doc"""
     walsh_coefficient_table(lut, n) -> Matrix{Int}
 
@@ -14,15 +66,23 @@ Compute all Walsh coefficients of an `(n, n)` function represented by a LUT.
 """
 function walsh_coefficient_table(lut::AbstractVector{<:Integer}, n::Int)::Matrix{Int}
     check_sbox_space_size(lut, n)
-    field = GF(2, n, "g")
-    inputs = field_elements(field, n)
-    function_values = function_values_to_field(lut, field, n)
-    space_size = length(inputs)
-    table = Matrix{Int}(undef, space_size, space_size)
+    field_size = space_size(n)
+    normalized_lut = Int.(lut)
+    dual_indices = trace_dual_indices(n)
+    table = Matrix{Int}(undef, field_size, field_size)
 
-    for (a_index, a) in pairs(inputs)
-        for (b_index, b) in pairs(inputs)
-            table[a_index, b_index] = walsh_coefficient(function_values, inputs, a, b)
+    for b in 0:(field_size - 1)
+        output_mask = dual_indices[b + 1]
+        column = Vector{Int}(undef, field_size)
+
+        @inbounds for x in 0:(field_size - 1)
+            column[x + 1] = parity_sign(output_mask & normalized_lut[x + 1])
+        end
+
+        fwht!(column)
+
+        @inbounds for a in 0:(field_size - 1)
+            table[a + 1, b + 1] = column[dual_indices[a + 1] + 1]
         end
     end
 
@@ -47,23 +107,37 @@ function multiplicities_sigma(lut::AbstractVector{<:Integer}, n::Int, k::Int)::D
     k >= 0 || error("k must be non-negative")
     check_sbox_space_size(lut, n)
 
-    field = GF(2, n, "g")
-    elements = field_elements(field, n)
-    walsh_table = walsh_coefficient_table(lut, n)
-    divisor = 2^(2 * n)
+    field_size = space_size(n)
+    normalized_lut = Int.(lut)
+    dual_indices = trace_dual_indices(n)
+    transformed_sums = zeros(Int, field_size)
+    divisor = field_size^2
     multiplicities = Dict{Int, Int}()
 
-    for (s_index, s) in pairs(elements)
-        total = 0
+    for b in 0:(field_size - 1)
+        output_mask = dual_indices[b + 1]
+        column = Vector{Int}(undef, field_size)
 
-        for a_index in eachindex(elements)
-            for (b_index, b) in pairs(elements)
-                total += trace_sign(b * s) * walsh_table[a_index, b_index]^k
-            end
+        @inbounds for x in 0:(field_size - 1)
+            column[x + 1] = parity_sign(output_mask & normalized_lut[x + 1])
         end
 
+        fwht!(column)
+        sum_over_a = 0
+
+        @inbounds for coefficient in column
+            sum_over_a += coefficient^k
+        end
+
+        transformed_sums[output_mask + 1] = sum_over_a
+    end
+
+    fwht!(transformed_sums)
+
+    for s in 0:(field_size - 1)
+        total = transformed_sums[s + 1]
         total % divisor == 0 || error("multiplicity sum is not divisible by $divisor")
-        multiplicities[s_index - 1] = div(total, divisor)
+        multiplicities[s] = div(total, divisor)
     end
 
     return multiplicities

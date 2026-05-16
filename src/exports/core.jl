@@ -37,6 +37,7 @@ export MultiplicityPartition,
        partition_by_multiplicity,
        select_minimal_basis_union,
        backtrack_external_linear_maps,
+       backtrack_external_linear_maps_parallel,
        reconstruct_external_linear_maps
 
 export InternalReconstructionData,

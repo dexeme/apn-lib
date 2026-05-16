@@ -206,6 +206,44 @@ function backtrack_external_linear_maps(left::MultiplicityPartition,
     image_pivots = zeros(Int, n)
     results = Vector{Vector{Int}}()
 
+    _backtrack_external_linear_maps!(results,
+                                     left,
+                                     right,
+                                     basis,
+                                     candidate_values,
+                                     n,
+                                     image,
+                                     domain_span,
+                                     image_pivots,
+                                     1)
+    return results
+end
+
+const EA_EXTERNAL_LOG_LEVELS = Dict(:quiet => 0, :info => 1, :debug => 2)
+
+function ea_external_log_level(level::Union{Symbol, AbstractString})::Int
+    key = Symbol(level)
+    haskey(EA_EXTERNAL_LOG_LEVELS, key) || error("log_level must be one of: quiet, info, debug")
+    return EA_EXTERNAL_LOG_LEVELS[key]
+end
+
+function ea_external_log(level::Int, threshold::Int, message::String)::Nothing
+    level <= threshold || return
+    println(message)
+    flush(stdout)
+    return
+end
+
+function _backtrack_external_linear_maps!(results::Vector{Vector{Int}},
+                                          left::MultiplicityPartition,
+                                          right::MultiplicityPartition,
+                                          basis::Vector{Int},
+                                          candidate_values::Vector{Int},
+                                          n::Int,
+                                          image::Vector{Int},
+                                          domain_span::Vector{Int},
+                                          image_pivots::Vector{Int},
+                                          start_level::Int)::Nothing
     function assign_basis_image(level::Int)::Nothing
         if level > n
             push!(results, copy(image))
@@ -259,21 +297,167 @@ function backtrack_external_linear_maps(left::MultiplicityPartition,
         return
     end
 
-    assign_basis_image(1)
+    assign_basis_image(start_level)
+    return
+end
+
+function backtrack_external_linear_maps_parallel(left::MultiplicityPartition,
+                                                 right::MultiplicityPartition,
+                                                 basis::Vector{Int},
+                                                 candidate_values::Vector{Int},
+                                                 n::Int;
+                                                 log_level::Union{Symbol, AbstractString} = :quiet)::Vector{Vector{Int}}
+    check_length(basis, n, name = "basis")
+    field_size = space_size(n)
+    isempty(candidate_values) && return Vector{Vector{Int}}()
+    Threads.nthreads() > 1 || return backtrack_external_linear_maps(left, right, basis, candidate_values, n)
+
+    verbosity = ea_external_log_level(log_level)
+    basis_value = basis[1]
+    branch_results = [Vector{Vector{Int}}() for _ in eachindex(candidate_values)]
+    progress_lock = ReentrantLock()
+    completed = Ref(0)
+    progress_step = max(1, length(candidate_values) ÷ 10)
+
+    ea_external_log(1, verbosity, "[info] external backtracking: $(length(candidate_values)) first-level branches on $(Threads.nthreads()) threads")
+
+    function log_branch(candidate_index::Int, local_count::Int)::Nothing
+        verbosity >= 1 || return
+
+        lock(progress_lock)
+        try
+            completed[] += 1
+            done = completed[]
+
+            if verbosity >= 2
+                println("[debug] external branch candidate_index=$candidate_index thread=$(Threads.threadid()) solutions=$local_count completed=$done/$(length(candidate_values))")
+                flush(stdout)
+            elseif done == 1 || done == length(candidate_values) || done % progress_step == 0
+                println("[info] external backtracking progress completed=$done/$(length(candidate_values))")
+                flush(stdout)
+            end
+        finally
+            unlock(progress_lock)
+        end
+
+        return
+    end
+
+    Threads.@threads :static for candidate_index in eachindex(candidate_values)
+        candidate = candidate_values[candidate_index]
+        if candidate == 0
+            log_branch(candidate_index, 0)
+            continue
+        end
+
+        image = fill(-1, field_size)
+        image[1] = 0
+        domain_span = [0]
+        image_pivots = zeros(Int, n)
+
+        valid = true
+        new_domain_values = Vector{Int}(undef, length(domain_span))
+        new_image_values = Vector{Int}(undef, length(domain_span))
+
+        @inbounds for index in eachindex(domain_span)
+            x = domain_span[index]
+            y = xor(x, basis_value)
+            y_image = xor(image[x + 1], candidate)
+
+            if right.block_index[y_image + 1] != left.block_index[y + 1]
+                valid = false
+                break
+            end
+
+            new_domain_values[index] = y
+            new_image_values[index] = y_image
+        end
+
+        if !valid
+            log_branch(candidate_index, 0)
+            continue
+        end
+
+        gf2_add_pivot!(image_pivots, candidate)
+
+        @inbounds for index in eachindex(new_domain_values)
+            image[new_domain_values[index] + 1] = new_image_values[index]
+            push!(domain_span, new_domain_values[index])
+        end
+
+        local_results = branch_results[candidate_index]
+        _backtrack_external_linear_maps!(local_results,
+                                         left,
+                                         right,
+                                         basis,
+                                         candidate_values,
+                                         n,
+                                         image,
+                                         domain_span,
+                                         image_pivots,
+                                         2)
+        log_branch(candidate_index, length(local_results))
+    end
+
+    results = Vector{Vector{Int}}()
+    for local_results in branch_results
+        append!(results, local_results)
+    end
+
     return results
 end
 
 function reconstruct_external_linear_maps(F::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
                                           G::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
                                           n::Int;
-                                          k::Int = 4)::Vector{Vector{Int}}
-    left = partition_by_multiplicity(F, n, k = k)
-    right = partition_by_multiplicity(G, n, k = k)
-    aligned_right = aligned_partitions(left, right)
-    aligned_right === nothing && return Vector{Vector{Int}}()
+                                          k::Int = 4,
+                                          parallel::Bool = Threads.nthreads() > 1,
+                                          log_level::Union{Symbol, AbstractString} = :quiet)::Vector{Vector{Int}}
+    verbosity = ea_external_log_level(log_level)
 
+    left = MultiplicityPartition(Vector{Vector{Int}}(), Int[], Int[])
+    ea_external_log(1, verbosity, "[info] external reconstruction: partitioning F")
+    left_time = @elapsed begin
+        left = partition_by_multiplicity(F, n, k = k)
+    end
+    ea_external_log(1, verbosity, "[info] external reconstruction: partitioned F in $(round(left_time; digits = 6)) s")
+
+    right = MultiplicityPartition(Vector{Vector{Int}}(), Int[], Int[])
+    ea_external_log(1, verbosity, "[info] external reconstruction: partitioning G")
+    right_time = @elapsed begin
+        right = partition_by_multiplicity(G, n, k = k)
+    end
+    ea_external_log(1, verbosity, "[info] external reconstruction: partitioned G in $(round(right_time; digits = 6)) s")
+
+    aligned_right = aligned_partitions(left, right)
+    if aligned_right === nothing
+        ea_external_log(1, verbosity, "[info] external reconstruction: multiplicity partitions are not aligned")
+        return Vector{Vector{Int}}()
+    end
+
+    ea_external_log(1, verbosity, "[info] external reconstruction: selecting basis and candidate values")
     basis, _, chosen_indices = select_minimal_basis_union(left, n)
     candidate_values = sort!(reduce(vcat, (aligned_right.blocks[index] for index in chosen_indices), init = Int[]))
+    ea_external_log(1, verbosity, "[info] external reconstruction: basis=$(basis), candidate_values=$(length(candidate_values)), parallel=$parallel")
 
-    return backtrack_external_linear_maps(left, aligned_right, basis, candidate_values, n)
+    backtrack_time = 0.0
+    results = Vector{Vector{Int}}()
+    if parallel
+        backtrack_time = @elapsed begin
+            results = backtrack_external_linear_maps_parallel(left,
+                                                              aligned_right,
+                                                              basis,
+                                                              candidate_values,
+                                                              n,
+                                                              log_level = log_level)
+        end
+    else
+        ea_external_log(1, verbosity, "[info] external backtracking: running serial search")
+        backtrack_time = @elapsed begin
+            results = backtrack_external_linear_maps(left, aligned_right, basis, candidate_values, n)
+        end
+    end
+
+    ea_external_log(1, verbosity, "[info] external reconstruction: backtracking finished in $(round(backtrack_time; digits = 6)) s with $(length(results)) candidates")
+    return results
 end

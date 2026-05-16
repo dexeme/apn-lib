@@ -2,6 +2,83 @@
 
 julia --project=. -e 'push!(LOAD_PATH, pwd()); include("test/runtests.jl")'
 
+# Parallel External Reconstruction
+
+`reconstruct_external_linear_maps` uses the parallel backtracking implementation automatically when Julia is started with more than one thread.
+
+Start Julia with threads:
+
+```bash
+julia -t auto --project=.
+```
+
+or choose a fixed number:
+
+```bash
+julia -t 8 --project=.
+```
+
+Run the external reconstruction:
+
+```julia
+using APNLib
+using Nemo
+
+n = 6
+K = GF(2, n, "a")
+R, x = Nemo.polynomial_ring(K, "x")
+
+F = univariate_to_lut(x^3, n)
+G = F
+
+L1_candidates = reconstruct_external_linear_maps(F, G, n)
+```
+
+Enable progress logs:
+
+```julia
+L1_candidates = reconstruct_external_linear_maps(F, G, n, log_level = :info)
+```
+
+Available log levels are:
+
+```julia
+:quiet  # default
+:info   # phase timings and parallel progress
+:debug  # one line per first-level backtracking branch
+```
+
+Force one mode explicitly:
+
+```julia
+L1_parallel = reconstruct_external_linear_maps(F, G, n, parallel = true)
+L1_serial = reconstruct_external_linear_maps(F, G, n, parallel = false)
+```
+
+Run one Kaleyski Table 1 case with threads:
+
+```bash
+APNLIB_KALEYSKI_TABLE1_DIMENSIONS=8 APNLIB_KALEYSKI_TABLE1_IDS=1.2 julia -t auto --project=. scripts/reproduce_kaleyski_table1.jl
+```
+
+Run all Kaleyski Table 1 cases for one dimension:
+
+```bash
+APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 julia --project=. scripts/reproduce_kaleyski_table1.jl
+```
+
+Enable algorithm logs from the script:
+
+```bash
+APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 APNLIB_LOG_LEVEL=info julia --project=. scripts/reproduce_kaleyski_table1.jl
+```
+
+Enable parallel execution from the script by starting Julia with threads:
+
+```bash
+APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 APNLIB_LOG_LEVEL=info julia -t auto --project=. scripts/reproduce_kaleyski_table1.jl
+```
+
 # Generate Tuples
 
 julia --project=.
