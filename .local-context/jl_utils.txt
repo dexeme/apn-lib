@@ -1,0 +1,218 @@
+### General Info
+# In Julia, the index starts at 1, not 0
+
+#=
+String Manipulation Methods
+Usage:
+length(str) # Get the length of the string
+str1 * str2 # Concatenate two strings
+str1 == str2 # Check if two strings are equal
+str1 != str2 # Check if two strings are not equal
+str1 < str2 # Check if str1 is less than str2 (lexicographically
+str1 > str2 # Check if str1 is greater than str2 (lexicographically)
+str1 <= str2 # Check if str1 is less than or equal to str2 (lexicographically)
+str1 >= str2 # Check if str1 is greater than or equal to str2 (
+lexicographically)
+str1[1] # Get the first character of the string
+str1[end] # Get the last character of the string
+str1[start_index:end_index] # Get a substring from start_index to end_index
+lowercase(str) # Convert the string to lowercase
+uppercase(str) # Convert the string to uppercase
+strip(str) # Remove leading and trailing whitespace from the string
+replace(str, old => new) # Replace occurrences of old with new in the string
+split(str, delimiter) # Split the string into an array of substrings based on the delimiter
+join(array, delimiter) # Join an array of strings into a single string with the delimiter
+occursin(substring, str) # Check if the substring occurs in the string
+startswith(str, prefix) # Check if the string starts with the given prefix
+endswith(str, suffix) # Check if the string ends with the given suffix
+findfirst(substring, str) # Get the index of the first occurrence of the substring in the string
+findlast(substring, str) # Get the index of the last occurrence of the substring in the string
+=#
+
+#=
+List Manipulation Methods
+push!(list, element) # Append an element to the end of the list
+length(list) # Get the length of the list
+pop!(my_list) # Remove and return the last element of the list
+insert!(list, index, element) # Insert an element at a specific index
+deleteat!(list, index) # Remove the first occurrence of an element from the list
+in(element, list) # Check if an element is in the list
+findfirst(==(element), list) # Get the index of the first occurrence of an element in the list
+count(==(element), list) # Get the count of occurrences of an element in the list
+sort(my_list) # Sort the list in ascending order
+reverse(list) # Reverse the list
+list[start_index:end_index] # Get a slice of the list
+my_list[end] # Get the last element of the list
+my_list[1] # Get the first element of the list
+empty!(list) # Clear the list
+fill(element, count) # Create a list with repeated elements
+collect(start:step:end) # Create a list with a range of numbers
+range(start, stop=end, step=step) # List with a range of numbers using the range function with a specified step
+range(start, stop=end, length=length) # List with a range of numbers using the range function with a specified length
+
+Lists package
+https://juliapackages.com/p/lists
+Package Lists.jl provides a singly linked list and a doubly linked list implementation, as Julia collections.
+Singly linked lists are supported with cons, car, and cdr, but not as a standard collection.
+Doubly linked lists are included in the samples but, again, not as a collection.
+This doesn't do anything fancy like create an array of nodes.
+
+Usage:
+a = List{Int}()    # Create a list of the given type.
+isempty(l)         # Test whether there are any items.
+empty!(l)          # Remove all items.
+length(l)          # The number of entries. An O(n) operation.
+2 in l             # Test whether the given item is an entry in the list. O(n).
+eltype(l)          # Returns the item type, here Int64.
+indexin(a, l)      # Highest index in list for each value of a that is member.
+first(l)           # First item in the list.
+last(l)            # Last item in the list, the item value.
+push!(l, d)        # Add item d to end of list. Returns index of item.
+pop!(l, d)         # Remove and return item at end of list.
+unshift!(l, d)     # Add item to start of list. Return index of item.
+shift!(l)          # Remove first item and return value.
+append!(l, items)  # Add items to end of list.
+prepend!(l, items) # Add items to start of list.
+
+There can be an index into the list. It is a reference to a list node but can be treated as an opaque index.
+
+getindex(l, index)     # Returns value of item at this index.
+setindex!(l, index, d) # Sets item value at this index.
+endof(l)               # Returns index of last node. An O(n) operation.
+insert!(l, index, d)   # Insert item at index, pushing values back. Return index.
+deleteat!(l, index)    # Delete item at index. Return list.
+splice!(l, index)      # Remove value at index, returning data value.
+splice!(l, index, d)   # Replace item at index with data value.
+find(l, d)             # Find first occurrence of item in list. Return its index.
+find(l, index, d)      # Find first occurrence of d after the given index.
+
+There are two kinds of iterators for List.
+
+One access items:
+l = List{Int}()
+prepend!(l, [2, 4, 6])
+for item::Int in l
+    println(item)
+end
+
+The other loops over indices:
+for index in indexed(l)
+    item=getindex(l, index)
+    println(item)
+end
+
+SLISTS
+
+SList is a singly linked list over items of a given type.
+Appending to the end of this list takes an order of the number of the items in the list.
+
+Usage:
+a = SList{Int}()    # Create a list of the given type.
+isempty(l)         # Test whether there are any items.
+empty!(l)          # Remove all items.
+eltype(l)          # Returns the item type, here Int64.
+first(l)           # First item in the list.
+unshift!(l, d)     # Add item to start of list. Return index of item.
+shift!(l)          # Remove first item and return value.
+prepend!(l, items) # Add items to start of list.
+
+There can be an index into the list. It is a reference to a list node but can be treated as an opaque index.
+
+getindex(l, index)     # Returns value of item at this index.
+setindex!(l, index, d) # Sets item value at this index.
+insert!(l, index, d)   # Inserts *after* the given index. Returns index.
+
+The following methods are O(n) for singly linked lists.
+They are included for completeness, but needing these is an indication
+that using a doubly linked list, or Vector, might be a better choice.
+
+length(l)          # The number of entries.
+2 in l             # Test whether the given item is an entry in the list.
+indexin(a, l)      # Highest index in list for each value of a that is member.
+last(l)            # Last item in the list, the item value.
+push!(l, d)        # Add item d to end of list. Returns index of item.
+pop!(l, d)         # Remove and return item at end of list.
+append!(l, items)  # Add items to end of list.
+endof(l)               # Returns index of last node.
+deleteat!(l, index)    # Delete item at index. Return list.
+splice!(l, index)      # Remove value at index, returning data value.
+splice!(l, index, d)   # Replace item at index with data value.
+find(l, d)             # Find first occurrence of item in list. Return its index.
+find(l, index, d)      # Find first occurrence of d after the given index.
+
+As with List, there are two kinds of iterators for SList.
+
+One access items:
+l = SList{Int}()
+prepend!(l, [2, 4, 6])
+for item::Int in l
+    println(item)
+end
+
+The other loops over indices:
+for index in indexed(l)
+    item=getindex(l, index)
+    println(item)
+end
+
+=#
+
+### Set Manipulation Methods
+#= Set in Julia is a collection of elements just like other collections like arrays, dictionaries, etc.
+- Sets are different from arrays because sets are unordered collections of unique elements.
+- The order of elements is strictly remembered in Arrays.
+- Arrays and dictionaries may contain duplicate values but Sets can't. Each element in a set must be unique.
+- Sets are mutable data types, which means its values can be altered, deleted, overwritten, etc.
+- Sets can contain elements of any data type.
+- It is not mandatory in Julia to define the data type of a set before the declaration of the elements.
+- Julia automatically analyzes the elements and defines the Set's data type.
+- Julia doesn't allow to access elements of a set individually because it is an unordered collection and hence, there is no fixed index of any element.
+
+Usage:
+Set([elem1, elem2, elem3...]) # Create a set
+push!(my_set, elem) # Add an element to the set
+delete!(my_set, elem) # Delete an element from the set
+in(elem, my_set) # Check if an element is in the set
+length(my_set) # Get the length of the set
+union(set1, set2) # Get the union of two sets
+intersect(set1, set2) # Get the intersection of two sets
+setdiff(set1, set2) # Get the difference of two sets
+=#
+
+#=
+Array Manipulation Methods
+The recommended ways to iterate over a whole array are
+The first construct is used when you need the value, but not index, of each element:
+
+for a in A
+    # Do something with the element a
+end
+
+In the second construct, i will be an Int if A is an array type with fast linear indexing:
+
+for i in eachindex(A)
+    # Do something with i and/or A[i]
+end
+
+otherwise, it will be a CartesianIndex:
+
+A = rand(4, 3);
+B = view(A, 1:3, 2:3);
+for i in eachindex(B)
+   @show i
+end
+i = CartesianIndex(1, 1)
+i = CartesianIndex(2, 1)
+i = CartesianIndex(3, 1)
+i = CartesianIndex(1, 2)
+i = CartesianIndex(2, 2)
+i = CartesianIndex(3, 2)
+=#
+
+#= Finite Fields
+Nemo package
+https://nemocas.github.io/Nemo.jl/stable/
+Nemo.jl is a computer algebra package for Julia.
+It provides a wide range of functionality for working with algebraic structures, including finite fields.
+
+=#
