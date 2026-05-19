@@ -1,5 +1,8 @@
 export is_apn
 
+export gamma_rank,
+       delta_rank
+
 export matrix_to_sbox,
        permutation_cycle_structure,
        matrix_cycle_structure,
