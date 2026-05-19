@@ -36,7 +36,7 @@ end
     )
     sbox = [0, 1, 2, 3]
 
-    APNLib.record_complete_solution!(context, sbox)
+    record_complete_solution!(context, sbox)
     sbox[2] = 0
 
     @test context.solutions == [[0, 1, 2, 3]]
@@ -96,7 +96,7 @@ end
 
 @testset "APN Search Matrix Constant Output" begin
     identity3 = Int[1 0 0; 0 1 0; 0 0 1]
-    constants_filename = joinpath("tuples", "AllTuplesMatrices3.jl")
+    constants_filename = joinpath(@__DIR__, "tuples", "AllTuplesMatrices3.jl")
     original_text = read(constants_filename, String)
 
     try

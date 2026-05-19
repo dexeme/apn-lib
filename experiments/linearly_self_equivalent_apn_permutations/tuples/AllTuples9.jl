@@ -1,4 +1,4 @@
-# This file is generated from tuples/AllTuples9.h.
+# This file is generated from experiments/linearly_self_equivalent_apn_permutations/tuples/AllTuples9.h.
 # Regenerate it with generate_tuple_constants_file(9).
 
 const N_TUPLES_9 = 43

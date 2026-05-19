@@ -2,9 +2,12 @@ using Test
 using Nemo
 using APNLib
 
+include("search.jl")
 include("tuple_generation.jl")
 include("test_proposition4.jl")
 include("test_proposition5.jl")
+include("test_APNSearch.jl")
+include("test_algorithm1.jl")
 
 @testset "Linearly self-equivalent APN permutation tuple experiment" begin
     F = gf2()

@@ -1,7 +1,7 @@
 const PRECOMPUTED_TUPLE_CACHE = Dict{Int, Vector{Vector{Int}}}()
 const PRECOMPUTED_TUPLE_MATRIX_CACHE = Dict{Int, Any}()
 
-default_tuples_dir() = joinpath(@__DIR__, "..", "..", "tuples")
+default_tuples_dir() = joinpath(@__DIR__, "..", "..", "experiments", "linearly_self_equivalent_apn_permutations", "tuples")
 
 function parse_c_tuple_rows(filename::String)
     text = read(filename, String)
@@ -26,7 +26,7 @@ function tuple_constants_name(n::Int, index::Int)
 end
 
 function write_julia_tuple_constants(file, n::Int, rows::Vector{Vector{Int}})
-    write(file, "# This file is generated from tuples/AllTuples$n.h.\n")
+    write(file, "# This file is generated from experiments/linearly_self_equivalent_apn_permutations/tuples/AllTuples$n.h.\n")
     write(file, "# Regenerate it with generate_tuple_constants_file($n).\n\n")
     write(file, "const N_TUPLES_$n = $(length(rows))\n\n")
 
@@ -161,7 +161,7 @@ function tuple_matrix_constant_names(n::Int, index::Int)
 end
 
 function write_julia_tuple_matrix_constants(file, n::Int, rows::Vector{Vector{Int}})
-    write(file, "# This file is generated from tuples/AllTuples$n.h.\n")
+    write(file, "# This file is generated from experiments/linearly_self_equivalent_apn_permutations/tuples/AllTuples$n.h.\n")
     write(file, "# Regenerate it with generate_tuple_matrix_constants_file($n).\n")
     write(file, "# Each class is stored as: tuple LUT, matrix A, matrix B.\n\n")
     write(file, "const N_TUPLE_MATRIX_BLOCKS_$n = $(length(rows))\n\n")
@@ -349,7 +349,7 @@ function write_c_array(file, rows)
     write(file, "};\n")
 end
 
-function generate_tuples_file(tuples, filename::String = "tuples/AllTuples.h")
+function generate_tuples_file(tuples, filename::String = joinpath(default_tuples_dir(), "AllTuples.h"))
     rows = tuples_to_sbox_rows(tuples)
 
     open(filename, "w") do file

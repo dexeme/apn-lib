@@ -87,7 +87,7 @@ using Pkg; using Nemo; using APNLib
 
 julia > include("experiments/linearly_self_equivalent_apn_permutations/tuple_generation.jl")
 julia > T = gen_permutation_tuples(n)
-julia > generate_tuples_file(T, "tuples/AllTuples$n.h")
+julia > generate_tuples_file(T, "experiments/linearly_self_equivalent_apn_permutations/tuples/AllTuples$n.h")
 
 # Extract matrices A, B from tuples 
 
@@ -98,7 +98,7 @@ proposition4_filter(A, B, n)
 
 # Full APN Search Workflow
 
-After generating `tuples/AllTuples$n.h`, generate the Julia constants with the tuple LUT and the extracted matrices:
+After generating `experiments/linearly_self_equivalent_apn_permutations/tuples/AllTuples$n.h`, generate the Julia constants with the tuple LUT and the extracted matrices:
 
 ```julia
 using APNLib
@@ -109,7 +109,7 @@ generate_tuple_matrix_constants_file(n)
 This creates:
 
 ```text
-tuples/AllTuplesMatrices$n.jl
+experiments/linearly_self_equivalent_apn_permutations/tuples/AllTuplesMatrices$n.jl
 ```
 
 Each class block contains:
@@ -138,6 +138,8 @@ passes_proposition5 = proposition5_filter(A, B, n)
 Run Algorithm 1 and save the first S-box found back into the same matrix constants file:
 
 ```julia
+include("experiments/linearly_self_equivalent_apn_permutations/search.jl")
+
 solutions = APNSearch(
     n,
     A,
@@ -152,7 +154,7 @@ solutions = APNSearch(
 When `save_results = true`, the result is written to:
 
 ```text
-tuples/AllTuplesMatrices$n.jl
+experiments/linearly_self_equivalent_apn_permutations/tuples/AllTuplesMatrices$n.jl
 ```
 
 with this format:
@@ -171,6 +173,7 @@ Run Algorithm 1 for multiple classes:
 
 ```julia
 using APNLib
+include("experiments/linearly_self_equivalent_apn_permutations/search.jl")
 
 n = 7
 
@@ -195,7 +198,7 @@ results = APNSearchClasses(
 Load the saved S-box constant and print the interpolated polynomial:
 
 ```julia
-include("tuples/AllTuplesMatrices7.jl")
+include("experiments/linearly_self_equivalent_apn_permutations/tuples/AllTuplesMatrices7.jl")
 
 sbox = ALL_TUPLES_7_1_SEARCH
 println(format_sbox_polynomial(sbox, 7))

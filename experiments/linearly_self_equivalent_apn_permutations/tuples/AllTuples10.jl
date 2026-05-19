@@ -1,4 +1,4 @@
-# This file is generated from tuples/AllTuples10.h.
+# This file is generated from experiments/linearly_self_equivalent_apn_permutations/tuples/AllTuples10.h.
 # Regenerate it with generate_tuple_constants_file(10).
 
 const N_TUPLES_10 = 87

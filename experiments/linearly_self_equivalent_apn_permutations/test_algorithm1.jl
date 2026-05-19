@@ -17,8 +17,8 @@ end
 
 @testset "Algorithm 1 C reference n = 7 class 4" begin
     A, B = precomputed_tuple_matrices(7, 4)
-    apply_A = APNLib.linear_map_lut(A, 7)
-    apply_B = APNLib.linear_map_lut(B, 7)
+    apply_A = linear_map_lut(A, 7)
+    apply_B = linear_map_lut(B, 7)
 
     solutions = APNSearch(
         7,
