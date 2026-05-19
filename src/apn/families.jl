@@ -79,7 +79,7 @@ end
 
 function has_base_term(function_::APNFunction, exponent::Int)
     n = infer_n(function_)
-    return any(term_key(term, n) == term_key(x(exponent), n) for term in function_.terms)
+    return any(term_key(term, n) == term_key(monomial_expr(exponent), n) for term in function_.terms)
 end
 
 function match_c4(function_::APNFunction)
@@ -93,7 +93,7 @@ function match_c4(function_::APNFunction)
               trace_step_matches(function_.traces[1], 1) &&
               trace_has_terms(function_.traces[1], [9])
 
-    exact_expanded = exact_terms(function_, [x(3); [x(normalize_exponent(9 * 2^j, 2^n - 1)) for j in 0:(n - 1)]])
+    exact_expanded = exact_terms(function_, [monomial_expr(3); [monomial_expr(normalize_exponent(9 * 2^j, 2^n - 1)) for j in 0:(n - 1)]])
 
     (compact || exact_expanded) || return nothing
     return APNFamilyMatch(:C4, Dict(:n => n, :a => 1), true, String[])
@@ -111,10 +111,10 @@ function match_c5(function_::APNFunction)
               trace_has_terms(function_.traces[1], [9, 18])
 
     modulus = 2^n - 1
-    expected = [x(3)]
+    expected = [monomial_expr(3)]
     for j in 0:(div(n, 3) - 1)
-        push!(expected, x(normalize_exponent(9 * 2^(3j), modulus)))
-        push!(expected, x(normalize_exponent(18 * 2^(3j), modulus)))
+        push!(expected, monomial_expr(normalize_exponent(9 * 2^(3j), modulus)))
+        push!(expected, monomial_expr(normalize_exponent(18 * 2^(3j), modulus)))
     end
 
     exact_expanded = exact_terms(function_, expected)
@@ -334,17 +334,17 @@ function family_c3(n::Int, i::Int)
 end
 
 function family_c4(n::Int)
-    return APNFunction(n, x(3), Tr(n, x(9); step = 1))
+    return APNFunction(n, monomial_expr(3), Tr(n, monomial_expr(9); step = 1))
 end
 
 function family_c5(n::Int)
     n % 3 == 0 || error("C5 requires 3 | n")
-    return APNFunction(n, x(3), Tr(n, x(9), x(18); step = 3))
+    return APNFunction(n, monomial_expr(3), Tr(n, monomial_expr(9), monomial_expr(18); step = 3))
 end
 
 function family_c6(n::Int)
     n % 3 == 0 || error("C6 requires 3 | n")
-    return APNFunction(n, x(3), Tr(n, x(18), x(36); step = 3))
+    return APNFunction(n, monomial_expr(3), Tr(n, monomial_expr(18), monomial_expr(36); step = 3))
 end
 
 function family_c7_c8_c9()

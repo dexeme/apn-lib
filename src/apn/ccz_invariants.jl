@@ -114,7 +114,7 @@ The Γ-rank is the rank over `GF(2)` of the development matrix of the graph
 
     Γ_F = {(x, F(x)) : x ∈ GF(2)^n}.
 
-The graph point `(x, F(x))` is encoded as the integer
+The graph point `(x, F(x))` is encoded as
 
     x | (F(x) << n).
 """
@@ -126,7 +126,7 @@ end
 @doc"""
     delta_rank(lut, n) -> Int
 
-Compute the Δ-rank of an APN function `F : GF(2)^n -> GF(2)^n` represented by a LUT.
+Compute the Δ-rank of a function `F : GF(2)^n -> GF(2)^n` represented by a LUT.
 
 The Δ-rank is computed from the development of the differential set
 

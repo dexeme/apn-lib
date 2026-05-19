@@ -77,10 +77,11 @@ function APNDefinition(n::Int, table_id::AbstractString, equation_id::AbstractSt
     return APNDefinition(n, String(table_id), String(equation_id), String(formula), APNComponent[components...])
 end
 
-x(exponent::Int) = APNTerm(ONE_COEFF, exponent)
-pterm(power::Int, exponent::Int; base::Symbol = :p) =
-    APNTerm(PowerCoefficient(base, power), exponent)
-pterm(exponent::Int; base::Symbol = :p) = pterm(1, exponent; base = base)
+monomial_expr(exponent::Int) =
+    APNTerm(ONE_COEFF, exponent)
+
+monomial_expr(coefficient_power::Int, exponent::Int; base::Symbol = :p) =
+    APNTerm(PowerCoefficient(base, coefficient_power), exponent)
 
 function Tr(n::Int, terms::APNTerm...; step::Union{Nothing, Int} = nothing)
     return APNTraceTerm(n, step, collect(terms))
@@ -99,7 +100,7 @@ function APNFunction(n::Union{Nothing, Int}, parts...)
             append!(terms, part.terms)
             append!(traces, part.traces)
         else
-            error("Unsupported APN function part: $part")
+            throw(ArgumentError("unsupported APN function part: $part"))
         end
     end
 
@@ -110,10 +111,15 @@ APNFunction(parts...) = APNFunction(nothing, parts...)
 
 trace_term(coefficient_power::Int, exponent::Int) =
     APNTraceMonomial(coefficient_power, exponent)
-xpow(exponent::Int) = APNMonomial(0, exponent)
+
+xpow(exponent::Int) =
+    APNMonomial(0, exponent)
+
 monomial(coefficient_power::Int, exponent::Int) =
     APNMonomial(coefficient_power, exponent)
-reference(id::AbstractString) = APNReference(String(id))
+
+reference(id::AbstractString) =
+    APNReference(String(id))
 
 function absolute_trace(terms::APNTraceMonomial...; scale::Int = 0)
     return APNAbsoluteTrace(scale, collect(terms))
@@ -142,10 +148,12 @@ function Base.show(io::IO, trace::APNTraceTerm)
     print(io, "Tr", trace.n)
     trace.step !== nothing && print(io, "^", trace.step)
     print(io, "(")
+
     for (index, term) in enumerate(trace.terms)
         index > 1 && print(io, "+")
         print(io, term)
     end
+
     print(io, ")")
 end
 
