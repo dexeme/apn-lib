@@ -2,11 +2,11 @@ using Test
 using Nemo
 using APNLib
 
-include("test_basicUtilities.jl")
-include("test_tuplesGen.jl")
-include("test_rcfs.jl")
-include("test_families.jl")
-include("test_trace_multiplicities.jl")
-include("test_representations.jl")
-include("test_ea_external.jl")
-include("test_ea_internal.jl")
+include("core/test_basic_utilities.jl")
+include("core/test_rational_canonical_forms.jl")
+include("core/test_trace_multiplicities.jl")
+include("core/test_representations.jl")
+include("core/test_ea_external.jl")
+include("core/test_ea_internal.jl")
+include("apn/test_tuple_generation.jl")
+include("apn/test_families.jl")

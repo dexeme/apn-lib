@@ -19,3 +19,12 @@ using APNLib
     @test univariate_to_lut(gold_polynomial, n) == gold_lut
 end
 
+@testset "Graph and LUT validation" begin
+    n = 2
+
+    @test lut_to_graph([0, 1, 2, 3], n) == [(0, 0), (1, 1), (2, 2), (3, 3)]
+    @test graph_to_lut([(2, 3), (0, 1), (3, 0), (1, 2)], n) == [1, 2, 3, 0]
+    @test_throws ErrorException graph_to_lut([(0, 0), (0, 1), (2, 2), (3, 3)], n)
+    @test_throws ErrorException graph_to_lut([(0, 0), (1, 1), (2, 2)], n)
+    @test_throws ErrorException lut_to_anf([0, 1, 2, 4], n)
+end

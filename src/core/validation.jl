@@ -108,10 +108,3 @@ function check_sbox_ddt_sizes(sbox::AbstractVector{<:Integer}, ddt::Matrix{Int})
     size(ddt) == (expected_size, expected_size) || error("ddt must be $expected_size x $expected_size")
     return true
 end
-
-function block_diagonal_gf2(blocks::Vector{FqMatrix})::FqMatrix
-    isempty(blocks) && error("At least one block is required")
-
-    typed_blocks = FqMatrix[block for block in blocks]
-    return block_diagonal_matrix(typed_blocks)
-end

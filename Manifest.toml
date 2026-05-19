@@ -2,7 +2,13 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "248140b72c6508a4bd4f62f0cf3f1d268be0d3be"
+project_hash = "4f32559df72fb0d692386abd7dc46de854c65fb6"
+
+[[deps.APNLib]]
+deps = ["Nemo"]
+path = "."
+uuid = "6e2c6ad6-0ad5-4e5e-8b4e-0d6f7b2f0d3d"
+version = "0.0.0"
 
 [[deps.AbstractAlgebra]]
 deps = ["LinearAlgebra", "MacroTools", "PrecompileTools", "Preferences", "Random", "RandomExtensions", "SparseArrays"]

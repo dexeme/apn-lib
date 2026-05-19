@@ -22,28 +22,6 @@ function integer_partitions(n::Int)
     return result
 end
 
-function cartesian_product_lists(lists)
-    if isempty(lists)
-        return [[]]
-    end
-
-    result = [[]]
-
-    for list in lists
-        new_result = []
-
-        for prefix in result
-            for item in list
-                push!(new_result, vcat(prefix, [item]))
-            end
-        end
-
-        result = new_result
-    end
-
-    return result
-end
-
 function monic_invertible_polynomial_coefficients(F, d::Int)
     d >= 1 || error("Dimension d must be positive")
 
