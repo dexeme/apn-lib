@@ -68,6 +68,15 @@ struct APNDefinition
     components::Vector{APNComponent}
 end
 
+function APNDefinition(n::Int, id::AbstractString, formula::AbstractString, components::APNComponent...)
+    return APNDefinition(n, String(id), String(id), String(formula), APNComponent[components...])
+end
+
+function APNDefinition(n::Int, table_id::AbstractString, equation_id::AbstractString,
+                       formula::AbstractString, components::APNComponent...)
+    return APNDefinition(n, String(table_id), String(equation_id), String(formula), APNComponent[components...])
+end
+
 x(exponent::Int) = APNTerm(ONE_COEFF, exponent)
 pterm(power::Int, exponent::Int; base::Symbol = :p) =
     APNTerm(PowerCoefficient(base, power), exponent)

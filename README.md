@@ -58,25 +58,25 @@ L1_serial = reconstruct_external_linear_maps(F, G, n, parallel = false)
 Run one Kaleyski Table 1 case with threads:
 
 ```bash
-APNLIB_KALEYSKI_TABLE1_DIMENSIONS=8 APNLIB_KALEYSKI_TABLE1_IDS=1.2 julia -t auto --project=. scripts/reproduce_kaleyski_table1.jl
+APNLIB_KALEYSKI_TABLE1_DIMENSIONS=8 APNLIB_KALEYSKI_TABLE1_IDS=1.2 julia -t auto --project=. experiments/kaleyski_table1/reproduce_table1.jl
 ```
 
 Run all Kaleyski Table 1 cases for one dimension:
 
 ```bash
-APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 julia --project=. scripts/reproduce_kaleyski_table1.jl
+APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 julia --project=. experiments/kaleyski_table1/reproduce_table1.jl
 ```
 
 Enable algorithm logs from the script:
 
 ```bash
-APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 APNLIB_LOG_LEVEL=info julia --project=. scripts/reproduce_kaleyski_table1.jl
+APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 APNLIB_LOG_LEVEL=info julia --project=. experiments/kaleyski_table1/reproduce_table1.jl
 ```
 
 Enable parallel execution from the script by starting Julia with threads:
 
 ```bash
-APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 APNLIB_LOG_LEVEL=info julia -t auto --project=. scripts/reproduce_kaleyski_table1.jl
+APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 APNLIB_LOG_LEVEL=info julia -t auto --project=. experiments/kaleyski_table1/reproduce_table1.jl
 ```
 
 # Generate Tuples
@@ -85,7 +85,8 @@ julia --project=.
 
 using Pkg; using Nemo; using APNLib
 
-julia > T = gen_permutation_tuple(n)
+julia > include("experiments/linearly_self_equivalent_apn_permutations/tuple_generation.jl")
+julia > T = gen_permutation_tuples(n)
 julia > generate_tuples_file(T, "tuples/AllTuples$n.h")
 
 # Extract matrices A, B from tuples 
@@ -123,6 +124,7 @@ Load one class and run the proposition filters:
 
 ```julia
 using APNLib
+include("experiments/linearly_self_equivalent_apn_permutations/tuple_generation.jl")
 
 n = 7
 class_index = 1

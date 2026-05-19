@@ -1,16 +1,10 @@
 export is_apn
 
-export check_order_space,
-       proposition4_filter,
-       proposition5_filter,
-       matrix_to_sbox,
+export matrix_to_sbox,
        permutation_cycle_structure,
        matrix_cycle_structure,
        same_cycle_structure,
-       is_permutation_tuple,
-       is_power_similar,
-       is_extended_power_similar,
-       gen_permutation_tuples
+       linear_map_lut
 
 export standard_visit_order,
        offset_visit_order,

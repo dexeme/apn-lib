@@ -1,8 +1,8 @@
 using Nemo
 using APNLib
 
-include(joinpath(@__DIR__, "..", "test", "kaleyski_table1_data.jl"))
-include(joinpath(@__DIR__, "..", "test", "fixtures", "kaleyski_table1_luts.jl"))
+include(joinpath(@__DIR__, "table1_data.jl"))
+include(joinpath(@__DIR__, "fixtures", "table1_luts.jl"))
 
 function env_log_level()
     return Symbol(get(ENV, "APNLIB_LOG_LEVEL", "quiet"))

@@ -2,8 +2,8 @@ using Test
 using Nemo
 using APNLib
 
-include("kaleyski_table1_data.jl")
-include("fixtures/kaleyski_table1_luts.jl")
+include("table1_data.jl")
+include("fixtures/table1_luts.jl")
 
 @testset "Kaleyski Table 1 generated LUT fixture" begin
     for case in KALEYSKI_TABLE1_CASES
