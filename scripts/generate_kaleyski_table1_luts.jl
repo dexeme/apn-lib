@@ -5,7 +5,7 @@ include(joinpath(@__DIR__, "..", "test", "kaleyski_table1_data.jl"))
 
 const OUTPUT_PATH = joinpath(@__DIR__, "..", "test", "fixtures", "kaleyski_table1_luts.jl")
 
-function trace_value(field, x, trace_degree::Int, terms::Vector{KaleyskiTraceTerm})
+function trace_value(field, x, trace_degree::Int, terms::Vector{APNTraceMonomial})
     value = zero(field)
 
     for trace_term in terms
@@ -18,20 +18,20 @@ function trace_value(field, x, trace_degree::Int, terms::Vector{KaleyskiTraceTer
     return value
 end
 
-function component_value(component::KaleyskiMonomial, field, x, x_int::Int, n::Int, generated_luts)
+function component_value(component::APNMonomial, field, x, x_int::Int, n::Int, generated_luts)
     return kaleyski_coefficient(field, component.coefficient_power) * x^component.exponent
 end
 
-function component_value(component::KaleyskiAbsoluteTrace, field, x, x_int::Int, n::Int, generated_luts)
+function component_value(component::APNAbsoluteTrace, field, x, x_int::Int, n::Int, generated_luts)
     return kaleyski_coefficient(field, component.scale_power) * trace_value(field, x, n, component.terms)
 end
 
-function component_value(component::KaleyskiRelativeTrace, field, x, x_int::Int, n::Int, generated_luts)
+function component_value(component::APNRelativeTrace, field, x, x_int::Int, n::Int, generated_luts)
     return kaleyski_coefficient(field, component.scale_power) *
            trace_value(field, x, component.extension_degree, component.terms)
 end
 
-function component_value(component::KaleyskiReference, field, x, x_int::Int, n::Int, generated_luts)
+function component_value(component::APNReference, field, x, x_int::Int, n::Int, generated_luts)
     definition = KALEYSKI_TABLE1_DEFINITION_BY_EQUATION_KEY[(n, component.id)]
     key = (n, definition.table_id)
     haskey(generated_luts, key) || error("referenced LUT $key has not been generated yet")

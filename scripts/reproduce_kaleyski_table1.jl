@@ -37,7 +37,7 @@ function run_kaleyski_table1_case(case)
         id = case.id,
         equation = kaleyski_table1_equation_id(case.n, case.id),
         time = elapsed,
-        permutations = obtained,
+        found = obtained,
         expected = expected,
         parallel = parallel,
         log_level = log_level,
@@ -46,8 +46,8 @@ function run_kaleyski_table1_case(case)
 end
 
 function print_markdown_table(rows)
-    println("| n | ID | Equation | Time | Permutations | Expected | Parallel | Log | OK |")
-    println("|---:|:---|:---|---:|---:|---:|:---:|:---:|:---:|")
+    println("| n | ID | Equation | Time | Found | Expected | Delta | Parallel | Log | OK |")
+    println("|---:|:---|:---|---:|---:|---:|---:|:---:|:---:|:---:|")
 
     for row in rows
         print_markdown_row(row)
@@ -55,15 +55,33 @@ function print_markdown_table(rows)
 end
 
 function print_markdown_header()
-    println("| n | ID | Equation | Time | Permutations | Expected | Parallel | Log | OK |")
-    println("|---:|:---|:---|---:|---:|---:|:---:|:---:|:---:|")
+    println("| n | ID | Equation | Time | Found | Expected | Delta | Parallel | Log | OK |")
+    println("|---:|:---|:---|---:|---:|---:|---:|:---:|:---:|:---:|")
     flush(stdout)
 end
 
 function print_markdown_row(row)
     time = string(round(row.time; digits = 6))
     ok = row.ok ? "yes" : "no"
-    println("| $(row.n) | $(row.id) | $(row.equation) | $time | $(row.permutations) | $(row.expected) | $(row.parallel) | $(row.log_level) | $ok |")
+    delta = row.found - row.expected
+    println("| $(row.n) | $(row.id) | $(row.equation) | $time | $(row.found) | $(row.expected) | $delta | $(row.parallel) | $(row.log_level) | $ok |")
+    flush(stdout)
+end
+
+function print_mismatch_summary(rows)
+    mismatches = [row for row in rows if !row.ok]
+    isempty(mismatches) && return
+
+    println()
+    println("Mismatches:")
+    println("| n | ID | Equation | Found | Expected | Delta |")
+    println("|---:|:---|:---|---:|---:|---:|")
+
+    for row in mismatches
+        delta = row.found - row.expected
+        println("| $(row.n) | $(row.id) | $(row.equation) | $(row.found) | $(row.expected) | $delta |")
+    end
+
     flush(stdout)
 end
 
@@ -97,6 +115,8 @@ function main()
         push!(rows, row)
         print_markdown_row(row)
     end
+
+    print_mismatch_summary(rows)
 end
 
 main()

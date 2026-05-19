@@ -27,22 +27,22 @@ const KALEYSKI_TABLE1_EXPECTED = Dict{Tuple{Int, String}, Int}(
     (6, "2.11") => 8,
     (6, "2.12") => 48,
     (8, "1.1") => 680,
-    (8, "1.2") => 680,
-    (8, "1.3") => 8,
-    (8, "1.4") => 8,
-    (8, "1.5") => 4,
-    (8, "1.6") => 4,
-    (8, "1.7") => 1,
-    (8, "1.8") => 4,
-    (8, "1.9") => 4,
-    (8, "1.10") => 2,
-    (8, "1.11") => 4,
-    (8, "1.12") => 4,
-    (8, "1.13") => 2,
-    (8, "1.14") => 2,
-    (8, "1.15") => 1,
-    (8, "1.16") => 2,
-    (8, "1.17") => 2,
+    (8, "1.2") => 8,    # Kaleyski alocou na linha 1.3
+    (8, "1.3") => 4,    # Kaleyski alocou na linha 1.5
+    (8, "1.4") => 1,    # A 1ª 'new', Kaleyski alocou na linha 1.7
+    (8, "1.5") => 4,    # A 2ª 'new', Kaleyski alocou na linha 1.8
+    (8, "1.6") => 4,    # A 3ª 'new', Kaleyski alocou na linha 1.9
+    (8, "1.7") => 2,    # A 4ª 'new', Kaleyski alocou na linha 1.10
+    (8, "1.8") => 4,    # A 5ª 'new', Kaleyski alocou na linha 1.11
+    (8, "1.9") => 4,    # A 6ª 'new', Kaleyski alocou na linha 1.12
+    (8, "1.10") => 2,   # A 7ª 'new', Kaleyski alocou na linha 1.13
+    (8, "1.11") => 8,   # Kaleyski alocou na linha 1.4
+    (8, "1.12") => 4,   # Kaleyski alocou na linha 1.6
+    (8, "1.13") => 2,   # A 8ª 'new', Kaleyski alocou na linha 1.14
+    (8, "1.14") => 1,   # A 9ª 'new', Kaleyski alocou na linha 1.15
+    (8, "1.15") => 680, # Kaleyski alocou na linha 1.2
+    (8, "1.16") => 2,   # A 10ª 'new', Kaleyski alocou na linha 1.16
+    (8, "1.17") => 2,   # A 11ª 'new', Kaleyski alocou na linha 1.17
     (8, "2.1") => 360,
     (8, "3.1") => 4,
     (8, "4.1") => 16,
@@ -51,61 +51,22 @@ const KALEYSKI_TABLE1_EXPECTED = Dict{Tuple{Int, String}, Int}(
     (8, "7.1") => 680,
 )
 
-abstract type KaleyskiTable1Component end
+term(coefficient_power::Int, exponent::Int) = trace_term(coefficient_power, exponent)
+xpow(exponent::Int) = APNLib.xpow(exponent)
+monomial(coefficient_power::Int, exponent::Int) = APNLib.monomial(coefficient_power, exponent)
+reference(id::AbstractString) = APNLib.reference(id)
+absolute_trace(terms::APNTraceMonomial...; scale::Int = 0) =
+    APNLib.absolute_trace(terms...; scale = scale)
+relative_trace(extension_degree::Int, terms::APNTraceMonomial...; scale::Int = 0) =
+    APNLib.relative_trace(extension_degree, terms...; scale = scale)
 
-struct KaleyskiMonomial <: KaleyskiTable1Component
-    coefficient_power::Int
-    exponent::Int
-end
-
-struct KaleyskiTraceTerm
-    coefficient_power::Int
-    exponent::Int
-end
-
-struct KaleyskiAbsoluteTrace <: KaleyskiTable1Component
-    scale_power::Int
-    terms::Vector{KaleyskiTraceTerm}
-end
-
-struct KaleyskiRelativeTrace <: KaleyskiTable1Component
-    scale_power::Int
-    extension_degree::Int
-    terms::Vector{KaleyskiTraceTerm}
-end
-
-struct KaleyskiReference <: KaleyskiTable1Component
-    id::String
-end
-
-struct KaleyskiTable1Definition
-    n::Int
-    table_id::String
-    equation_id::String
-    formula::String
-    components::Vector{KaleyskiTable1Component}
-end
-
-term(coefficient_power::Int, exponent::Int) = KaleyskiTraceTerm(coefficient_power, exponent)
-xpow(exponent::Int) = KaleyskiMonomial(0, exponent)
-monomial(coefficient_power::Int, exponent::Int) = KaleyskiMonomial(coefficient_power, exponent)
-reference(id::AbstractString) = KaleyskiReference(String(id))
-
-function absolute_trace(terms::KaleyskiTraceTerm...; scale::Int = 0)
-    return KaleyskiAbsoluteTrace(scale, collect(terms))
-end
-
-function relative_trace(extension_degree::Int, terms::KaleyskiTraceTerm...; scale::Int = 0)
-    return KaleyskiRelativeTrace(scale, extension_degree, collect(terms))
-end
-
-function entry(n::Int, id::AbstractString, formula::AbstractString, components::KaleyskiTable1Component...)
-    return KaleyskiTable1Definition(n, String(id), String(id), String(formula), collect(components))
+function entry(n::Int, id::AbstractString, formula::AbstractString, components::APNComponent...)
+    return APNDefinition(n, String(id), String(id), String(formula), APNComponent[components...])
 end
 
 function entry(n::Int, table_id::AbstractString, equation_id::AbstractString, formula::AbstractString,
-               components::KaleyskiTable1Component...)
-    return KaleyskiTable1Definition(n, String(table_id), String(equation_id), String(formula), collect(components))
+               components::APNComponent...)
+    return APNDefinition(n, String(table_id), String(equation_id), String(formula), APNComponent[components...])
 end
 
 const KALEYSKI_TABLE1_DEFINITIONS = [
@@ -187,8 +148,7 @@ const KALEYSKI_TABLE1_DEFINITIONS = [
     entry(8, "1.12", "(No. 1.9) + u^103*tr(u^172*x^3 + u^31*x^9)",
         reference("1.9"), absolute_trace(term(172, 3), term(31, 9); scale = 103)),
     entry(8, "1.13", "(No. 1.10) + u^90*(tr(u^87*x^3 + u^141*x^5 + u^20*x^9) + tr_16/2(u^51*x^17))",
-        reference("1.10"),
-        absolute_trace(term(87, 3), term(141, 5), term(20, 9); scale = 90),
+        reference("1.10"), absolute_trace(term(87, 3), term(141, 5), term(20, 9); scale = 90),
         relative_trace(4, term(51, 17); scale = 90)),
     entry(8, "1.14", "(No. 1.11) + u^5*tr(u^160*x^3 + u^250*x^9)",
         reference("1.11"), absolute_trace(term(160, 3), term(250, 9); scale = 5)),
