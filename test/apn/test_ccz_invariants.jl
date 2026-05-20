@@ -19,4 +19,11 @@ using APNLib
 
     @test gamma == 330
     @test delta == 42
+    @test gamma_rank(gold_polynomial, n) == gamma
+    @test delta_rank(gold_polynomial, n) == delta
+
+    dimensioned_gold_polynomial = APNFunction(n, monomial_expr(3))
+
+    @test gamma_rank(dimensioned_gold_polynomial, n) == gamma
+    @test delta_rank(dimensioned_gold_polynomial, n) == delta
 end

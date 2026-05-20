@@ -151,3 +151,7 @@ function walsh_spectrum(lut::AbstractVector{<:Integer}, n::Int)::Vector{Int}
 
     return spectrum
 end
+
+function walsh_spectrum(function_::APNFunction, n::Int)::Vector{Int}
+    return walsh_spectrum(apn_to_lut(function_, n), n)
+end

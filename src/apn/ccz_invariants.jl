@@ -123,6 +123,10 @@ function gamma_rank(lut::AbstractVector{<:Integer}, n::Int)::Int
     return _development_rank(graph, 2 * n)
 end
 
+function gamma_rank(function_::APNFunction, n::Int)::Int
+    return gamma_rank(apn_to_lut(function_, n), n)
+end
+
 @doc"""
     delta_rank(lut, n) -> Int
 
@@ -137,4 +141,8 @@ Since the field has characteristic two, both additions are implemented as XOR.
 function delta_rank(lut::AbstractVector{<:Integer}, n::Int)::Int
     delta = _delta_points(lut, n)
     return _development_rank(delta, 2 * n)
+end
+
+function delta_rank(function_::APNFunction, n::Int)::Int
+    return delta_rank(apn_to_lut(function_, n), n)
 end

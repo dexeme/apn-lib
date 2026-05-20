@@ -142,3 +142,7 @@ function multiplicities_sigma(lut::AbstractVector{<:Integer}, n::Int, k::Int)::D
 
     return multiplicities
 end
+
+function multiplicities_sigma(function_::APNFunction, n::Int, k::Int)::Dict{Int, Int}
+    return multiplicities_sigma(apn_to_lut(function_, n), n, k)
+end

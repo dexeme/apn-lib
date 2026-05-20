@@ -16,8 +16,8 @@ using APNLib
 
     c5 = APNFunction(monomial_expr(3), Tr(39, monomial_expr(9), monomial_expr(18)))
 
-    @test belongs_to_family(c4, :C4)
     @test belongs_to_family(c3, :C3)
+    @test belongs_to_family(c4, :C4)
     @test belongs_to_family(c5, :C5)
 
     c3_match = only(filter(match -> match.family == :C3, classify_family(c3)))

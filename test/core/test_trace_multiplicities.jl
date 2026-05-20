@@ -60,4 +60,9 @@ end
     end
 
     @test multiplicities_sigma(lut, n, 4) == direct_multiplicities
+    @test multiplicities_sigma(gold_polynomial, n, 4) == direct_multiplicities
+
+    dimensioned_gold_polynomial = APNFunction(n, monomial_expr(3))
+
+    @test multiplicities_sigma(dimensioned_gold_polynomial, n, 4) == direct_multiplicities
 end
