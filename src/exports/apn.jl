@@ -1,4 +1,5 @@
-export is_apn
+export is_apn,
+       orthoderivative
 
 export gamma_rank,
        delta_rank
@@ -28,7 +29,8 @@ export generate_tuples_file,
        save_search_result_constant,
        search_result_constant_name,
        tuple_to_sbox_row,
-       tuples_to_sbox_rows
+       tuples_to_sbox_rows,
+       precomputed_tuple_search
 
 export APNCoefficient,
        OneCoefficient,

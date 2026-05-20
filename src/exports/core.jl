@@ -30,6 +30,7 @@ export absolute_trace_to_field,
        field_elements,
        walsh_coefficient,
        walsh_spectrum,
+       extended_walsh_spectrum,
        walsh_coefficient_table,
        multiplicities_sigma
 

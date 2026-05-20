@@ -356,3 +356,14 @@ function generate_tuples_file(tuples, filename::String = joinpath(default_tuples
         write_c_array(file, rows)
     end
 end
+
+function precomputed_tuple_search(n::Int, index::Int; tuples_dir::String = default_tuples_dir())
+    blocks = load_precomputed_tuple_matrix_constants(n, tuples_dir = tuples_dir)
+    1 <= index <= length(blocks) || error("Tuple index must be between 1 and $(length(blocks)) for n = $n")
+
+    block = blocks[index]
+    block.search === nothing && error("Search result for ALL_TUPLES_$(n)_$(index)_SEARCH not found")
+
+    return block.search
+
+end

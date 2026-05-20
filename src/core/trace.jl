@@ -123,35 +123,3 @@ function walsh_coefficient(lut::AbstractVector{<:Integer},
 
     return walsh_coefficient(function_values, inputs, a, b)
 end
-
-@doc"""
-    walsh_spectrum(lut, n) -> Vector{Int}
-
-Compute the full Walsh spectrum of an `(n, n)` function represented by a LUT.
-
-### Input
-- `lut::AbstractVector{<:Integer}`: S-box values indexed by integers `0:(2^n - 1)`.
-- `n::Int`: Binary field extension degree.
-
-### Output
-- `Vector{Int}`: All coefficients `W_F(a, b)` for `a, b in GF(2^n)`.
-"""
-function walsh_spectrum(lut::AbstractVector{<:Integer}, n::Int)::Vector{Int}
-    check_sbox_space_size(lut, n)
-    field = GF(2, n, "g")
-    inputs = field_elements(field, n)
-    function_values = function_values_to_field(lut, field, n)
-    spectrum = Int[]
-
-    for a in inputs
-        for b in inputs
-            push!(spectrum, walsh_coefficient(function_values, inputs, a, b))
-        end
-    end
-
-    return spectrum
-end
-
-function walsh_spectrum(function_::APNFunction, n::Int)::Vector{Int}
-    return walsh_spectrum(apn_to_lut(function_, n), n)
-end

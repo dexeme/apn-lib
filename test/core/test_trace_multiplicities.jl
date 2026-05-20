@@ -13,7 +13,8 @@ using APNLib
     walsh_table = walsh_coefficient_table(identity_lut, 2)
 
     @test all(walsh_table[a, b] == (a == b ? 4 : 0) for a in 1:4, b in 1:4)
-    @test walsh_spectrum(identity_lut, 2) == vec(walsh_table')
+    @test walsh_spectrum(identity_lut, 2) == vec(walsh_table)
+    @test extended_walsh_spectrum(identity_lut, 2) == sort(abs.(vec(walsh_table)))
 end
 
 @testset "Fast Walsh Table Matches Direct Formula" begin
