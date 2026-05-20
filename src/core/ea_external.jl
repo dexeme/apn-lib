@@ -4,6 +4,22 @@ struct MultiplicityPartition
     multiplicities::Vector{Int}
 end
 
+struct ExternalReconstructionData
+    left::MultiplicityPartition
+    right::MultiplicityPartition
+    basis::Vector{Int}
+    candidate_values::Vector{Int}
+    chosen_indices::Vector{Int}
+end
+
+function compute_multiplicities(lut::AbstractVector{<:Integer}, n::Int; k::Int = 4)::Dict{Int, Int}
+    return multiplicities_sigma(lut, n, k)
+end
+
+function compute_multiplicities(function_::APNFunction, n::Int; k::Int = 4)::Dict{Int, Int}
+    return multiplicities_sigma(function_, n, k)
+end
+
 function lut_from_table(table::AbstractVector{<:Integer}, n::Int)::Vector{Int}
     check_lut_values(table, n)
     return Int.(table)
@@ -28,17 +44,24 @@ function partition_by_multiplicity(lut::Union{AbstractVector{<:Integer}, Abstrac
                                    n::Int;
                                    k::Int = 4)::MultiplicityPartition
     normalized_lut = lut_from_table(lut, n)
-    multiplicities_by_value = multiplicities_sigma(normalized_lut, n, k)
+    multiplicities_by_value = compute_multiplicities(normalized_lut, n, k = k)
+    return partition_from_multiplicities(multiplicities_by_value, n)
+end
+
+function partition_from_multiplicities(multiplicities_by_value::AbstractDict{<:Integer, <:Integer},
+                                       n::Int)::MultiplicityPartition
+    field_size = space_size(n)
     values_by_multiplicity = Dict{Int, Vector{Int}}()
 
-    for value in 0:(space_size(n) - 1)
-        multiplicity = multiplicities_by_value[value]
+    for value in 0:(field_size - 1)
+        haskey(multiplicities_by_value, value) || error("multiplicities are missing value $value")
+        multiplicity = Int(multiplicities_by_value[value])
         push!(get!(values_by_multiplicity, multiplicity, Int[]), value)
     end
 
     multiplicities = sort!(collect(keys(values_by_multiplicity)))
     blocks = Vector{Vector{Int}}(undef, length(multiplicities))
-    block_index = zeros(Int, space_size(n))
+    block_index = zeros(Int, field_size)
 
     for (index, multiplicity) in pairs(multiplicities)
         block = sort!(values_by_multiplicity[multiplicity])
@@ -50,6 +73,19 @@ function partition_by_multiplicity(lut::Union{AbstractVector{<:Integer}, Abstrac
     end
 
     return MultiplicityPartition(blocks, block_index, multiplicities)
+end
+
+function partition_from_multiplicities(multiplicities_by_value::AbstractVector{<:Integer},
+                                       n::Int)::MultiplicityPartition
+    field_size = space_size(n)
+    check_length(multiplicities_by_value, field_size, name = "multiplicities")
+    as_dict = Dict{Int, Int}()
+
+    @inbounds for value in 0:(field_size - 1)
+        as_dict[value] = Int(multiplicities_by_value[value + 1])
+    end
+
+    return partition_from_multiplicities(as_dict, n)
 end
 
 function gf2_rank(values::AbstractVector{<:Integer}, n::Int)::Int
@@ -219,6 +255,31 @@ function backtrack_external_linear_maps(left::MultiplicityPartition,
     return results
 end
 
+function foreach_external_linear_map!(emit::Function,
+                                      left::MultiplicityPartition,
+                                      right::MultiplicityPartition,
+                                      basis::Vector{Int},
+                                      candidate_values::Vector{Int},
+                                      n::Int)::Bool
+    check_length(basis, n, name = "basis")
+    field_size = space_size(n)
+    image = fill(-1, field_size)
+    image[1] = 0
+    domain_span = [0]
+    image_pivots = zeros(Int, n)
+
+    return _foreach_external_linear_map!(emit,
+                                         left,
+                                         right,
+                                         basis,
+                                         candidate_values,
+                                         n,
+                                         image,
+                                         domain_span,
+                                         image_pivots,
+                                         1)
+end
+
 const EA_EXTERNAL_LOG_LEVELS = Dict(:quiet => 0, :info => 1, :debug => 2)
 
 function ea_external_log_level(level::Union{Symbol, AbstractString})::Int
@@ -299,6 +360,137 @@ function _backtrack_external_linear_maps!(results::Vector{Vector{Int}},
 
     assign_basis_image(start_level)
     return
+end
+
+function _foreach_external_linear_map!(emit::Function,
+                                       left::MultiplicityPartition,
+                                       right::MultiplicityPartition,
+                                       basis::Vector{Int},
+                                       candidate_values::Vector{Int},
+                                       n::Int,
+                                       image::Vector{Int},
+                                       domain_span::Vector{Int},
+                                       image_pivots::Vector{Int},
+                                       level::Int)::Bool
+    if level > n
+        return emit(copy(image))::Bool
+    end
+
+    basis_value = basis[level]
+
+    for candidate in candidate_values
+        gf2_is_independent(candidate, image_pivots) || continue
+
+        valid = true
+        old_span_length = length(domain_span)
+        new_domain_values = Vector{Int}(undef, old_span_length)
+        new_image_values = Vector{Int}(undef, old_span_length)
+
+        @inbounds for index in 1:old_span_length
+            x = domain_span[index]
+            y = xor(x, basis_value)
+            y_image = xor(image[x + 1], candidate)
+
+            if right.block_index[y_image + 1] != left.block_index[y + 1]
+                valid = false
+                break
+            end
+
+            new_domain_values[index] = y
+            new_image_values[index] = y_image
+        end
+
+        valid || continue
+
+        old_pivots = copy(image_pivots)
+        gf2_add_pivot!(image_pivots, candidate)
+
+        @inbounds for index in eachindex(new_domain_values)
+            image[new_domain_values[index] + 1] = new_image_values[index]
+            push!(domain_span, new_domain_values[index])
+        end
+
+        should_continue = _foreach_external_linear_map!(emit,
+                                                        left,
+                                                        right,
+                                                        basis,
+                                                        candidate_values,
+                                                        n,
+                                                        image,
+                                                        domain_span,
+                                                        image_pivots,
+                                                        level + 1)
+
+        resize!(domain_span, old_span_length)
+        image_pivots .= old_pivots
+
+        @inbounds for value in new_domain_values
+            image[value + 1] = -1
+        end
+
+        should_continue || return false
+    end
+
+    return true
+end
+
+function prepare_external_reconstruction(F::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                         G::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                         n::Int;
+                                         k::Int = 4,
+                                         log_level::Union{Symbol, AbstractString} = :quiet)::Union{Nothing, ExternalReconstructionData}
+    verbosity = ea_external_log_level(log_level)
+
+    ea_external_log(1, verbosity, "[info] external reconstruction: partitioning F")
+    left = partition_by_multiplicity(F, n, k = k)
+    ea_external_log(1, verbosity, "[info] external reconstruction: partitioning G")
+    right = partition_by_multiplicity(G, n, k = k)
+
+    aligned_right = aligned_partitions(left, right)
+    if aligned_right === nothing
+        ea_external_log(1, verbosity, "[info] external reconstruction: multiplicity partitions are not aligned")
+        return nothing
+    end
+
+    basis, _, chosen_indices = select_minimal_basis_union(left, n)
+    candidate_values = sort!(reduce(vcat, (aligned_right.blocks[index] for index in chosen_indices), init = Int[]))
+    ea_external_log(1, verbosity, "[info] external reconstruction: basis=$(basis), candidate_values=$(length(candidate_values))")
+
+    return ExternalReconstructionData(left, aligned_right, basis, candidate_values, chosen_indices)
+end
+
+function external_linear_maps_channel(F::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                      G::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                      n::Int;
+                                      k::Int = 4,
+                                      channel_size::Int = 1,
+                                      log_level::Union{Symbol, AbstractString} = :quiet)::Channel{Vector{Int}}
+    return Channel{Vector{Int}}(channel_size) do channel
+        data = prepare_external_reconstruction(F, G, n, k = k, log_level = log_level)
+        data === nothing && return
+
+        foreach_external_linear_map!(data.left, data.right, data.basis, data.candidate_values, n) do image
+            put!(channel, image)
+            return true
+        end
+    end
+end
+
+function first_external_linear_map(F::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                   G::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                   n::Int;
+                                   k::Int = 4,
+                                   log_level::Union{Symbol, AbstractString} = :quiet)::Union{Nothing, Vector{Int}}
+    data = prepare_external_reconstruction(F, G, n, k = k, log_level = log_level)
+    data === nothing && return nothing
+
+    first_result = Ref{Union{Nothing, Vector{Int}}}(nothing)
+    foreach_external_linear_map!(data.left, data.right, data.basis, data.candidate_values, n) do image
+        first_result[] = image
+        return false
+    end
+
+    return first_result[]
 end
 
 function backtrack_external_linear_maps_parallel(left::MultiplicityPartition,
@@ -415,46 +607,26 @@ function reconstruct_external_linear_maps(F::Union{AbstractVector{<:Integer}, Ab
                                           log_level::Union{Symbol, AbstractString} = :quiet)::Vector{Vector{Int}}
     verbosity = ea_external_log_level(log_level)
 
-    left = MultiplicityPartition(Vector{Vector{Int}}(), Int[], Int[])
-    ea_external_log(1, verbosity, "[info] external reconstruction: partitioning F")
-    left_time = @elapsed begin
-        left = partition_by_multiplicity(F, n, k = k)
-    end
-    ea_external_log(1, verbosity, "[info] external reconstruction: partitioned F in $(round(left_time; digits = 6)) s")
-
-    right = MultiplicityPartition(Vector{Vector{Int}}(), Int[], Int[])
-    ea_external_log(1, verbosity, "[info] external reconstruction: partitioning G")
-    right_time = @elapsed begin
-        right = partition_by_multiplicity(G, n, k = k)
-    end
-    ea_external_log(1, verbosity, "[info] external reconstruction: partitioned G in $(round(right_time; digits = 6)) s")
-
-    aligned_right = aligned_partitions(left, right)
-    if aligned_right === nothing
-        ea_external_log(1, verbosity, "[info] external reconstruction: multiplicity partitions are not aligned")
+    data = prepare_external_reconstruction(F, G, n, k = k, log_level = log_level)
+    if data === nothing
         return Vector{Vector{Int}}()
     end
-
-    ea_external_log(1, verbosity, "[info] external reconstruction: selecting basis and candidate values")
-    basis, _, chosen_indices = select_minimal_basis_union(left, n)
-    candidate_values = sort!(reduce(vcat, (aligned_right.blocks[index] for index in chosen_indices), init = Int[]))
-    ea_external_log(1, verbosity, "[info] external reconstruction: basis=$(basis), candidate_values=$(length(candidate_values)), parallel=$parallel")
 
     backtrack_time = 0.0
     results = Vector{Vector{Int}}()
     if parallel
         backtrack_time = @elapsed begin
-            results = backtrack_external_linear_maps_parallel(left,
-                                                              aligned_right,
-                                                              basis,
-                                                              candidate_values,
+            results = backtrack_external_linear_maps_parallel(data.left,
+                                                              data.right,
+                                                              data.basis,
+                                                              data.candidate_values,
                                                               n,
                                                               log_level = log_level)
         end
     else
         ea_external_log(1, verbosity, "[info] external backtracking: running serial search")
         backtrack_time = @elapsed begin
-            results = backtrack_external_linear_maps(left, aligned_right, basis, candidate_values, n)
+            results = backtrack_external_linear_maps(data.left, data.right, data.basis, data.candidate_values, n)
         end
     end
 

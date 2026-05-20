@@ -3,6 +3,12 @@ struct InternalReconstructionData
     basis::Vector{Int}
 end
 
+struct EAEquivalence
+    L1::Vector{Int}
+    A2::Vector{Int}
+    A::Vector{Int}
+end
+
 function bitset_values(set::BitVector)::Vector{Int}
     return [index - 1 for index in eachindex(set) if set[index]]
 end
@@ -99,6 +105,23 @@ function affine_lut(lut::Vector{Int}, n::Int)::Bool
     return true
 end
 
+function linear_lut_to_matrix(lut::Vector{Int}, n::Int)::Matrix{Int}
+    check_lut_values(lut, n)
+    lut[1] == 0 || error("linear LUT must map 0 to 0")
+
+    matrix = zeros(Int, n, n)
+
+    @inbounds for col in 1:n
+        image = lut[(1 << (col - 1)) + 1]
+
+        for row in 1:n
+            matrix[row, col] = (image >> (row - 1)) & 1
+        end
+    end
+
+    return matrix
+end
+
 function affine_on_span(linear_image::Vector{Int},
                         domain_span::Vector{Int},
                         F::Vector{Int},
@@ -125,17 +148,27 @@ function reconstruct_internal_affine_maps(F::Union{AbstractVector{<:Integer}, Ab
                                           n::Int;
                                           is_quadratic::Bool = true,
                                           max_solutions::Union{Nothing, Int} = nothing)::Vector{Tuple{Vector{Int}, Vector{Int}}}
+    results = Vector{Tuple{Vector{Int}, Vector{Int}}}()
+
+    foreach_internal_affine_map(F, G, n, is_quadratic = is_quadratic) do a2_lut, a_lut
+        push!(results, (a2_lut, a_lut))
+        return max_solutions === nothing || length(results) < max_solutions
+    end
+
+    return results
+end
+
+function foreach_internal_affine_map(emit::Function,
+                                     F::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                     G::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                     n::Int;
+                                     is_quadratic::Bool = true)::Bool
     f_lut = lut_from_table(F, n)
     g_lut = lut_from_table(G, n)
     data = prepare_internal_reconstruction(f_lut, g_lut, n)
     field_size = space_size(n)
     translations = is_quadratic ? [0] : collect(0:(field_size - 1))
     candidate_domains = [bitset_values(domain) for domain in data.domains]
-    results = Vector{Tuple{Vector{Int}, Vector{Int}}}()
-
-    function enough_results()::Bool
-        return max_solutions !== nothing && length(results) >= max_solutions
-    end
 
     for c2 in translations
         data.domains[1][c2 + 1] || continue
@@ -145,9 +178,7 @@ function reconstruct_internal_affine_maps(F::Union{AbstractVector{<:Integer}, Ab
         domain_span = [0]
         image_pivots = zeros(Int, n)
 
-        function assign_basis_image(level::Int)::Nothing
-            enough_results() && return
-
+        function assign_basis_image(level::Int)::Bool
             if level > n
                 a2_lut = Vector{Int}(undef, field_size)
                 a_lut = Vector{Int}(undef, field_size)
@@ -159,10 +190,10 @@ function reconstruct_internal_affine_maps(F::Union{AbstractVector{<:Integer}, Ab
                 end
 
                 if affine_lut(a_lut, n)
-                    push!(results, (a2_lut, a_lut))
+                    return emit(a2_lut, a_lut)::Bool
                 end
 
-                return
+                return true
             end
 
             basis_value = data.basis[level]
@@ -202,7 +233,9 @@ function reconstruct_internal_affine_maps(F::Union{AbstractVector{<:Integer}, Ab
                 end
 
                 if affine_on_span(linear_image, domain_span, f_lut, g_lut, c2)
-                    assign_basis_image(level + 1)
+                    should_continue = assign_basis_image(level + 1)
+                else
+                    should_continue = true
                 end
 
                 resize!(domain_span, old_span_length)
@@ -211,16 +244,78 @@ function reconstruct_internal_affine_maps(F::Union{AbstractVector{<:Integer}, Ab
                 @inbounds for value in new_domain_values
                     linear_image[value + 1] = -1
                 end
+
+                should_continue || return false
             end
 
-            return
+            return true
         end
 
-        assign_basis_image(1)
-        enough_results() && break
+        assign_basis_image(1) || return false
     end
 
-    return results
+    return true
+end
+
+function internal_affine_maps_channel(F::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                      G::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                      n::Int;
+                                      is_quadratic::Bool = true,
+                                      channel_size::Int = 1)::Channel{Tuple{Vector{Int}, Vector{Int}}}
+    return Channel{Tuple{Vector{Int}, Vector{Int}}}(channel_size) do channel
+        foreach_internal_affine_map(F, G, n, is_quadratic = is_quadratic) do a2_lut, a_lut
+            put!(channel, (a2_lut, a_lut))
+            return true
+        end
+    end
+end
+
+function first_internal_affine_map(F::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                   G::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                                   n::Int;
+                                   is_quadratic::Bool = true)::Union{Nothing, Tuple{Vector{Int}, Vector{Int}}}
+    first_result = Ref{Union{Nothing, Tuple{Vector{Int}, Vector{Int}}}}(nothing)
+
+    foreach_internal_affine_map(F, G, n, is_quadratic = is_quadratic) do a2_lut, a_lut
+        first_result[] = (a2_lut, a_lut)
+        return false
+    end
+
+    return first_result[]
+end
+
+function compose_l1_with_lut(L1::Vector{Int}, F::Vector{Int}, n::Int)::Vector{Int}
+    check_lut_values(L1, n, name = "L1")
+    check_lut_values(F, n, name = "F")
+    field_size = space_size(n)
+    composed = Vector{Int}(undef, field_size)
+
+    @inbounds for x in 0:(field_size - 1)
+        composed[x + 1] = L1[F[x + 1] + 1]
+    end
+
+    return composed
+end
+
+function first_ea_equivalence(F::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                              G::Union{AbstractVector{<:Integer}, AbstractDict{<:Integer, <:Integer}},
+                              n::Int;
+                              k::Int = 4,
+                              is_quadratic::Bool = true,
+                              log_level::Union{Symbol, AbstractString} = :quiet)::Union{Nothing, EAEquivalence}
+    f_lut = lut_from_table(F, n)
+    g_lut = lut_from_table(G, n)
+
+    for L1 in external_linear_maps_channel(f_lut, g_lut, n, k = k, log_level = log_level)
+        transformed_f = compose_l1_with_lut(L1, f_lut, n)
+        internal = first_internal_affine_map(transformed_f, g_lut, n, is_quadratic = is_quadratic)
+        internal === nothing && continue
+
+        A2, A = internal
+        return EAEquivalence(L1, A2, A)
+    end
+
+    return nothing
 end
 
 algorithm3_reconstruct_internal = reconstruct_internal_affine_maps

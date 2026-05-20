@@ -35,18 +35,32 @@ export absolute_trace_to_field,
        multiplicities_sigma
 
 export MultiplicityPartition,
+       ExternalReconstructionData,
+       compute_multiplicities,
        partition_by_multiplicity,
+       partition_from_multiplicities,
        select_minimal_basis_union,
+       prepare_external_reconstruction,
+       foreach_external_linear_map!,
+       external_linear_maps_channel,
+       first_external_linear_map,
        backtrack_external_linear_maps,
        backtrack_external_linear_maps_parallel,
        reconstruct_external_linear_maps
 
 export InternalReconstructionData,
+       EAEquivalence,
        build_o3_sets,
        restrict_internal_domains,
        optimized_internal_basis,
        prepare_internal_reconstruction,
        affine_lut,
+       linear_lut_to_matrix,
+       foreach_internal_affine_map,
+       internal_affine_maps_channel,
+       first_internal_affine_map,
+       compose_l1_with_lut,
+       first_ea_equivalence,
        reconstruct_internal_affine_maps,
        algorithm3_reconstruct_internal
 

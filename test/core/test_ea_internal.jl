@@ -32,4 +32,13 @@ end
     solutions = reconstruct_internal_affine_maps(F, G, n, is_quadratic = true)
 
     @test (L2_secret, A_secret) in solutions
+    @test first_internal_affine_map(F, G, n, is_quadratic = true) in solutions
+    @test first(internal_affine_maps_channel(F, G, n, is_quadratic = true)) in solutions
+
+    equivalence = first_ea_equivalence(F, G, n, is_quadratic = true)
+    @test equivalence !== nothing
+    @test affine_lut(equivalence.A, n)
+    @test linear_lut_to_matrix(equivalence.L1, n) isa Matrix{Int}
+    @test all(x -> G[x + 1] == xor(equivalence.L1[F[equivalence.A2[x + 1] + 1] + 1], equivalence.A[x + 1]),
+              0:(space_size(n) - 1))
 end

@@ -14,6 +14,8 @@ using APNLib
 
     gold_results = reconstruct_external_linear_maps(gold_lut, gold_lut, n, parallel = false)
     @test length(gold_results) == 1008
+    @test first_external_linear_map(gold_lut, gold_lut, n) in gold_results
+    @test first(external_linear_maps_channel(gold_lut, gold_lut, n)) in gold_results
 
     gold_parallel_results = reconstruct_external_linear_maps(gold_lut, gold_lut, n, parallel = true)
     @test sort(gold_parallel_results) == sort(gold_results)
