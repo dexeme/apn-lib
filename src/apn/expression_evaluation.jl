@@ -101,3 +101,26 @@ function apn_to_lut(function_::APNFunction)::Vector{Int}
 
     return lut
 end
+
+function apn_with_dimension(function_::APNFunction, n::Int)::APNFunction
+    if function_.n === nothing
+        return APNFunction(n, function_)
+    end
+
+    function_.n == n ||
+        throw(ArgumentError("function dimension $(function_.n) does not match n = $n"))
+
+    return function_
+end
+
+apn_to_lut(function_::APNFunction, n::Int)::Vector{Int} =
+    apn_to_lut(apn_with_dimension(function_, n))
+
+univariate_to_lut(function_::APNFunction, n::Int)::Vector{Int} =
+    apn_to_lut(function_, n)
+
+univariate_to_graph(function_::APNFunction, n::Int)::Vector{Tuple{Int, Int}} =
+    lut_to_graph(univariate_to_lut(function_, n), n)
+
+univariate_to_anf(function_::APNFunction, n::Int)::ANFVector =
+    lut_to_anf(univariate_to_lut(function_, n), n)

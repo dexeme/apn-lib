@@ -4,9 +4,7 @@ using APNLib
 
 @testset "Gold function representation conversions" begin
     n = 3
-    field = GF(2, n, "g")
-    polynomial_ring, x = Nemo.polynomial_ring(field, "x")
-    gold_polynomial = x^3
+    gold_polynomial = APNFunction(monomial_expr(3))
 
     gold_graph = univariate_to_graph(gold_polynomial, n)
     gold_lut = graph_to_lut(gold_graph, n)

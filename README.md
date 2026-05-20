@@ -66,14 +66,13 @@ using APNLib
 using Nemo
 ```
 
-Example: reconstruct external linear maps for `x^3` over `GF(2^6)`:
+Example: reconstruct external linear maps for the Gold function over `GF(2^6)`:
 
 ```julia
 n = 6
-K = GF(2, n, "a")
-R, x = Nemo.polynomial_ring(K, "x")
 
-F = univariate_to_lut(x^3, n)
+gold_polynomial = APNFunction(monomial_expr(3))
+F = univariate_to_lut(gold_polynomial, n)
 G = F
 
 L1_candidates = reconstruct_external_linear_maps(F, G, n)

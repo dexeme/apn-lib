@@ -9,9 +9,8 @@ using APNLib
     @test delta_rank(identity_lut, 2) isa Int
 
     n = 5
-    field = GF(2, n, "g")
-    R, x = Nemo.polynomial_ring(field, "x")
-    gold_lut = univariate_to_lut(x^3, n)
+    gold_polynomial = APNFunction(monomial_expr(3))
+    gold_lut = univariate_to_lut(gold_polynomial, n)
 
     @test is_apn(gold_lut)
 

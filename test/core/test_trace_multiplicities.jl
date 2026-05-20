@@ -19,8 +19,8 @@ end
 @testset "Fast Walsh Table Matches Direct Formula" begin
     n = 3
     field = GF(2, n, "g")
-    R, x = Nemo.polynomial_ring(field, "x")
-    lut = univariate_to_lut(x^3, n)
+    gold_polynomial = APNFunction(monomial_expr(3))
+    lut = univariate_to_lut(gold_polynomial, n)
     inputs = APNLib.field_elements(field, n)
     values = APNLib.function_values_to_field(lut, field, n)
     walsh_table = walsh_coefficient_table(lut, n)
@@ -40,8 +40,8 @@ end
 
     n = 3
     field = GF(2, n, "g")
-    R, x = Nemo.polynomial_ring(field, "x")
-    lut = univariate_to_lut(x^3, n)
+    gold_polynomial = APNFunction(monomial_expr(3))
+    lut = univariate_to_lut(gold_polynomial, n)
     elements = APNLib.field_elements(field, n)
     walsh_table = walsh_coefficient_table(lut, n)
     divisor = space_size(n)^2
