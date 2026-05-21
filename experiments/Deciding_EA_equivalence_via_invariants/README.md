@@ -1,78 +1,119 @@
-# Kaleyski Table 1 Experiment
+# Deciding EA-Equivalence via Invariants
 
-@article{Kaleyski:202203,
- doi = {10.1007/s12095-021-00513-y},
- author = {Nikolay Kaleyski},
- title = {{Deciding {EA}-equivalence via invariants}},
- year = 2022,
- month = mar,
- journal = {{Cryptography and Communications}},
- volume = 14,
- number = 2,
- pages = {271--290},
-}
+This experiment implements the algorithms and the reproduction of Table 1 from
+Nikolay Kaleyski's paper, "Deciding EA-equivalence via invariants".
 
-This experiment reproduces the implemented permutation counts from Table 1
-of Kaleyski, "Deciding EA-equivalence via invariants", using LUT fixtures
-generated from the formulas in `table1_data.jl`.
+The main files are:
 
-## Tests
+- `KaleyskiExperiments.jl`: experiment module.
+- `algorithm_1.jl`: reconstruction of the external linear permutation.
+- `algorithm_2.jl`: search for linear permutations that respect partitions.
+- `algorithm_3.jl`: reconstruction of the internal affine permutation.
+- `table_1.jl`: data and routine for reproducing Table 1.
+
+## Requirements
+
+Use the repository's Julia environment:
+
+```bash
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+This directory's Makefile runs this step automatically before its targets.
+
+## Makefile
 
 From this directory:
 
 ```bash
 make tests
+make table-1
 ```
 
 From the repository root:
 
 ```bash
 make -C experiments/Deciding_EA_equivalence_via_invariants tests
+make -C experiments/Deciding_EA_equivalence_via_invariants table-1
 ```
 
-The tests check that the generated LUT fixture exists for every configured
-case and that `reconstruct_external_linear_maps` returns the expected count.
-
-## Reproduce Table 1 Cases
-
-Run all configured cases:
+To run only some Table 1 entries:
 
 ```bash
-make reproduce
+make table-1 DIMENSIONS=6 IDS=1.1
+make table-1 DIMENSIONS=8 IDS=1.1,1.2 LOG_LEVEL=info
 ```
 
-Run only selected dimensions:
+It is also possible to control parallelization:
 
 ```bash
-APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 make reproduce
+make table-1 DIMENSIONS=6 IDS=1.1 PARALLEL=false
+julia -t auto --project=../.. -e 'include("KaleyskiExperiments.jl"); using .KaleyskiExperiments; main_table_1(dimensions = 6, ids = "1.1")'
 ```
 
-Run selected IDs:
+## Julia Examples
+
+Start Julia from the repository root:
 
 ```bash
-APNLIB_KALEYSKI_TABLE1_DIMENSIONS=8 APNLIB_KALEYSKI_TABLE1_IDS=1.2 make reproduce
+julia --project=.
 ```
 
-Enable logs:
+Load the experiment:
 
-```bash
-APNLIB_LOG_LEVEL=info make reproduce
+```julia
+include("experiments/Deciding_EA_equivalence_via_invariants/KaleyskiExperiments.jl")
+using .KaleyskiExperiments
 ```
 
-Use Julia threads:
+List the available cases:
 
-```bash
-JULIA='julia -t auto' APNLIB_KALEYSKI_TABLE1_DIMENSIONS=6 make reproduce
+```julia
+table_1_cases()
+table_1_cases(dimensions = 6)
+table_1_cases(dimensions = 8, ids = ["1.1", "1.2"])
 ```
 
-Parallel execution can be controlled with `APNLIB_PARALLEL=auto`, `true`, or
-`false`.
+Run a specific Table 1 entry:
 
-## Regenerate LUT Fixtures
+```julia
+result = main_table_1(dimensions = 6, ids = "1.1")
+```
 
-The fixture file `fixtures/table1_luts.jl` is generated from `table1_data.jl`.
-Regenerate it with:
+Run a subset with logs:
 
-```bash
-make generate-luts
+```julia
+result = main_table_1(
+    dimensions = 8,
+    ids = ["1.1", "1.2"],
+    parallel = true,
+    log_level = :info,
+)
+```
+
+Use Algorithm 1 directly on a LUT generated for a Table 1 case:
+
+```julia
+context = table_1_selected_context(table_1_cases(dimensions = 6, ids = "1.1"))
+function_ = context.catalogue.functions[1]
+lut = context.fixtures[:luts][(function_.n, function_.id)]
+
+linear_maps = algorithm_1(lut, lut, function_.n)
+length(linear_maps)
+```
+
+## Citation
+
+```bibtex
+@article{Kaleyski:2022,
+  doi = {10.1007/s12095-021-00513-y},
+  author = {Nikolay Kaleyski},
+  title = {{Deciding {EA}-equivalence via invariants}},
+  journal = {{Cryptography and Communications}},
+  volume = {14},
+  number = {2},
+  pages = {271--290},
+  year = {2022},
+  month = mar,
+}
 ```
