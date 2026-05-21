@@ -39,4 +39,7 @@ _gf8_cube(a::Int)::Int = _gf8_mul(_gf8_square(a), a)
         @test 1 <= y <= 7
         @test lut[(alpha ⊻ y) + 1] ⊻ lut[alpha + 1] ⊻ lut[y + 1] ⊻ lut[1] == 0
     end
+
+    x9_lut = [_gf8_square(x) for x in 0:7]
+    @test orthoderivative(x9_lut) == [0, 1, 1, 1, 1, 1, 1, 1]
 end

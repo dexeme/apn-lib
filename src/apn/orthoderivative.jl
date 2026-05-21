@@ -1,4 +1,4 @@
-function _kernel_vector_dimension_one!(rows::Vector{Int}, pivot_cols::Vector{Int}, n::Int)::Int
+function _kernel_vector!(rows::Vector{Int}, pivot_cols::Vector{Int}, n::Int)::Int
     rank = 0
 
     @inbounds for col in 0:(n - 1)
@@ -26,7 +26,7 @@ function _kernel_vector_dimension_one!(rows::Vector{Int}, pivot_cols::Vector{Int
         end
     end
 
-    rank == n - 1 || error("orthoderivative expects a quadratic APN LUT with one-dimensional kernels")
+    rank < n || error("orthoderivative found a trivial kernel")
 
     free_col = 0
     @inbounds for col in 0:(n - 1)
@@ -60,7 +60,7 @@ end
     orthoderivative(F::Vector{Int}) -> Vector{Int}
 
 Compute the orthoderivative map used by the MAGMA implementation for a
-quadratic APN function represented by a lookup table over ``GF(2)^n``.
+function represented by a lookup table over ``GF(2)^n``.
 
 The lookup table is indexed by integers: the value of ``F(x)`` is stored at
 `F[x + 1]`. The output coordinates are first computed as
@@ -68,8 +68,8 @@ The lookup table is indexed by integers: the value of ``F(x)`` is stored at
     Trace(a^j * F(x)), j = 0, ..., n - 1
 
 where `a` is the generator of ``GF(2)^n``. For each nonzero ``α``, the matrix
-`J` has entries `J[j, i] = T_j(α ⊻ 2^i) + T_j(α) + T_j(2^i) + T_j(0)`, and
-the returned value is the generator of `Kernel(J)` encoded as an integer.
+`J` has entries `J[j, i] = T_j(α ⊻ 2^i) + T_j(α) + T_j(2^i) + T_j(0)`.
+The returned value is a generator of `Kernel(J)` encoded as an integer.
 """
 function orthoderivative(F::Vector{Int})::Vector{Int}
     field_size = length(F)
@@ -105,12 +105,12 @@ function orthoderivative(F::Vector{Int})::Vector{Int}
                    trace_table[component + 1, basis + 1] ⊻
                    trace_table[component + 1, 1]
 
-                    rows[i + 1] |= (1 << component)
+                    rows[component + 1] |= (1 << i)
                 end
             end
         end
 
-        pi[alpha + 1] = _kernel_vector_dimension_one!(rows, pivot_cols, n)
+        pi[alpha + 1] = _kernel_vector!(rows, pivot_cols, n)
     end
 
     return pi
