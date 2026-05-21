@@ -31,23 +31,39 @@ function component_value(component::APNRelativeTrace, field, x, x_int::Int, n::I
            trace_value(field, x, component.extension_degree, component.terms)
 end
 
+function term_value(term::APNTerm, field, x, n::Int)
+    if term.coefficient isa OneCoefficient
+        return x^term.exponent
+    end
+
+    if term.coefficient isa PowerCoefficient
+        return kaleyski_coefficient(field, term.coefficient.exponent) * x^term.exponent
+    end
+
+    error("unsupported APN term coefficient: $(term.coefficient)")
+end
+
 function component_value(component::APNReference, field, x, x_int::Int, n::Int, generated_luts)
-    definition = KALEYSKI_TABLE1_DEFINITION_BY_EQUATION_KEY[(n, component.id)]
-    key = (n, definition.table_id)
+    function_ = KALEYSKI_TABLE1_FUNCTION_BY_EQUATION_KEY[(n, component.id)]
+    key = (n, function_.id)
     haskey(generated_luts, key) || error("referenced LUT $key has not been generated yet")
     return int_to_field_element(generated_luts[key][x_int + 1], field, n)
 end
 
 function generated_lut(case, generated_luts)
     field = GF(2, case.n, "a")
-    definition = KALEYSKI_TABLE1_DEFINITION_BY_KEY[(case.n, case.id)]
+    function_ = KALEYSKI_TABLE1_FUNCTION_BY_KEY[(case.n, case.id)]
     lut = Vector{Int}(undef, 2^case.n)
 
     for x_int in 0:(2^case.n - 1)
         x = int_to_field_element(x_int, field, case.n)
         value = zero(field)
 
-        for component in definition.components
+        for term in function_.terms
+            value += term_value(term, field, x, case.n)
+        end
+
+        for component in function_.components
             value += component_value(component, field, x, x_int, case.n, generated_luts)
         end
 

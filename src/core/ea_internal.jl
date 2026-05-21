@@ -302,20 +302,34 @@ function first_ea_equivalence(F::Union{AbstractVector{<:Integer}, AbstractDict{<
                               n::Int;
                               k::Int = 4,
                               is_quadratic::Bool = true,
+                              max_external_maps::Union{Nothing, Int} = nothing,
                               log_level::Union{Symbol, AbstractString} = :quiet)::Union{Nothing, EAEquivalence}
-    f_lut = lut_from_table(F, n)
-    g_lut = lut_from_table(G, n)
-
-    for L1 in external_linear_maps_channel(f_lut, g_lut, n, k = k, log_level = log_level)
-        transformed_f = compose_l1_with_lut(L1, f_lut, n)
-        internal = first_internal_affine_map(transformed_f, g_lut, n, is_quadratic = is_quadratic)
-        internal === nothing && continue
-
-        A2, A = internal
-        return EAEquivalence(L1, A2, A)
+    if max_external_maps !== nothing && max_external_maps < 1
+        throw(ArgumentError("max_external_maps must be positive or nothing"))
     end
 
-    return nothing
+    f_lut = lut_from_table(F, n)
+    g_lut = lut_from_table(G, n)
+    data = prepare_external_reconstruction(f_lut, g_lut, n, k = k, log_level = log_level)
+    data === nothing && return nothing
+
+    tested_external_maps = 0
+    first_result = Ref{Union{Nothing, EAEquivalence}}(nothing)
+
+    foreach_external_linear_map!(data.left, data.right, data.basis, data.candidate_values, n) do L1
+        tested_external_maps += 1
+        transformed_f = compose_l1_with_lut(L1, f_lut, n)
+        internal = first_internal_affine_map(transformed_f, g_lut, n, is_quadratic = is_quadratic)
+        if internal === nothing
+            return max_external_maps === nothing || tested_external_maps < max_external_maps
+        end
+
+        A2, A = internal
+        first_result[] = EAEquivalence(L1, A2, A)
+        return false
+    end
+
+    return first_result[]
 end
 
 algorithm3_reconstruct_internal = reconstruct_internal_affine_maps

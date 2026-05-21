@@ -59,6 +59,8 @@ end
 function evaluate(function_::APNFunction, x_value::FqFieldElem, field::FqField)
     function_.n !== nothing ||
         throw(ArgumentError("cannot evaluate APNFunction without dimension n"))
+    isempty(function_.components) ||
+        throw(ArgumentError("cannot evaluate APNFunction with catalogue components without an evaluation context"))
 
     n = function_.n
     check_binary_extension_field(field, n)
@@ -104,7 +106,7 @@ end
 
 function apn_with_dimension(function_::APNFunction, n::Int)::APNFunction
     if function_.n === nothing
-        return APNFunction(n, function_)
+        return APNFunction(n, function_.id, function_)
     end
 
     function_.n == n ||

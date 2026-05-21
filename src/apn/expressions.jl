@@ -20,10 +20,14 @@ struct APNTraceTerm
     terms::Vector{APNTerm}
 end
 
+abstract type APNComponent end
+
 struct APNFunction
     n::Union{Nothing, Int}
+    id::Union{Nothing, String}
     terms::Vector{APNTerm}
     traces::Vector{APNTraceTerm}
+    components::Vector{APNComponent}
 end
 
 struct APNFamilyMatch
@@ -32,8 +36,6 @@ struct APNFamilyMatch
     exact::Bool
     notes::Vector{String}
 end
-
-abstract type APNComponent end
 
 struct APNMonomial <: APNComponent
     coefficient_power::Int
@@ -60,21 +62,8 @@ struct APNReference <: APNComponent
     id::String
 end
 
-struct APNDefinition
-    n::Int
-    table_id::String
-    equation_id::String
-    formula::String
-    components::Vector{APNComponent}
-end
-
-function APNDefinition(n::Int, id::AbstractString, formula::AbstractString, components::APNComponent...)
-    return APNDefinition(n, String(id), String(id), String(formula), APNComponent[components...])
-end
-
-function APNDefinition(n::Int, table_id::AbstractString, equation_id::AbstractString,
-                       formula::AbstractString, components::APNComponent...)
-    return APNDefinition(n, String(table_id), String(equation_id), String(formula), APNComponent[components...])
+struct Catalogue
+    functions::Vector{APNFunction}
 end
 
 monomial_expr(exponent::Int) =
@@ -87,9 +76,10 @@ function Tr(n::Int, terms::APNTerm...; step::Union{Nothing, Int} = nothing)
     return APNTraceTerm(n, step, collect(terms))
 end
 
-function APNFunction(n::Union{Nothing, Int}, parts...)
+function APNFunction(n::Union{Nothing, Int}, id::Union{Nothing, AbstractString}, parts...)
     terms = APNTerm[]
     traces = APNTraceTerm[]
+    components = APNComponent[]
 
     for part in parts
         if part isa APNTerm
@@ -99,15 +89,22 @@ function APNFunction(n::Union{Nothing, Int}, parts...)
         elseif part isa APNFunction
             append!(terms, part.terms)
             append!(traces, part.traces)
+            append!(components, part.components)
+        elseif part isa APNComponent
+            push!(components, part)
         else
             throw(ArgumentError("unsupported APN function part: $part"))
         end
     end
 
-    return APNFunction(n, terms, traces)
+    return APNFunction(n, id === nothing ? nothing : String(id), terms, traces, components)
 end
 
+APNFunction(n::Union{Nothing, Int}, parts...) = APNFunction(n, nothing, parts...)
+APNFunction(id::AbstractString, parts...) = APNFunction(nothing, id, parts...)
 APNFunction(parts...) = APNFunction(nothing, parts...)
+
+Catalogue(functions::APNFunction...) = Catalogue(APNFunction[functions...])
 
 trace_term(coefficient_power::Int, exponent::Int) =
     APNTraceMonomial(coefficient_power, exponent)
@@ -157,9 +154,45 @@ function Base.show(io::IO, trace::APNTraceTerm)
     print(io, ")")
 end
 
+function Base.show(io::IO, monomial::APNMonomial)
+    monomial.coefficient_power != 0 && print(io, "u", monomial.coefficient_power, "*")
+    print(io, "x", monomial.exponent)
+end
+
+function Base.show(io::IO, monomial::APNTraceMonomial)
+    monomial.coefficient_power != 0 && print(io, "u", monomial.coefficient_power, "*")
+    print(io, "x", monomial.exponent)
+end
+
+function _show_trace_monomials(io::IO, terms::Vector{APNTraceMonomial})
+    for (index, term) in enumerate(terms)
+        index > 1 && print(io, "+")
+        print(io, term)
+    end
+end
+
+function Base.show(io::IO, trace::APNAbsoluteTrace)
+    trace.scale_power != 0 && print(io, "u", trace.scale_power, "*")
+    print(io, "tr(")
+    _show_trace_monomials(io, trace.terms)
+    print(io, ")")
+end
+
+function Base.show(io::IO, trace::APNRelativeTrace)
+    trace.scale_power != 0 && print(io, "u", trace.scale_power, "*")
+    print(io, "tr_", 2^trace.extension_degree, "/2(")
+    _show_trace_monomials(io, trace.terms)
+    print(io, ")")
+end
+
+function Base.show(io::IO, reference::APNReference)
+    print(io, "(No. ", reference.id, ")")
+end
+
 function Base.show(io::IO, function_::APNFunction)
     parts = Any[function_.terms...]
     append!(parts, function_.traces)
+    append!(parts, function_.components)
     isempty(parts) && return print(io, "0")
 
     for (index, part) in enumerate(parts)
