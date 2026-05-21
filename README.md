@@ -47,7 +47,7 @@ make all-tests
 You can also run each experiment directly:
 
 ```bash
-make -C experiments/kaleyski_table1 tests
+make -C experiments/Deciding_EA_equivalence_via_invariants tests
 make -C experiments/linearly_self_equivalent_apn_permutations tests
 ```
 
@@ -109,5 +109,5 @@ L1_serial = reconstruct_external_linear_maps(F, G, n, parallel = false)
 
 Experiment documentation is kept next to each experiment:
 
-- [`experiments/kaleyski_table1/README.md`](experiments/kaleyski_table1/README.md)
+- [`experiments/Deciding_EA_equivalence_via_invariants/README.md`](experiments/Deciding_EA_equivalence_via_invariants/README.md)
 - [`experiments/linearly_self_equivalent_apn_permutations/README.md`](experiments/linearly_self_equivalent_apn_permutations/README.md)

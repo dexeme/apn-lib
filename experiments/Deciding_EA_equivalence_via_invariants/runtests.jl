@@ -2,28 +2,32 @@ using Test
 using Nemo
 using APNLib
 
-include("table1_data.jl")
-include("fixtures/table1_luts.jl")
+include("KaleyskiExperiments.jl")
+using .KaleyskiExperiments
 
 @testset "Kaleyski Table 1 generated LUT fixture" begin
-    for case in KALEYSKI_TABLE1_CASES
+    context = KALEYSKI_TABLE1_CONTEXT
+
+    @test context.catalogue === KaleyskiExperiments.KALEYSKI_TABLE1_CATALOGUE
+    @test haskey(context.fixtures, :luts)
+    @test haskey(context.expected, :external_linear_permutation_count)
+
+    for case in KaleyskiExperiments.KALEYSKI_TABLE1_CASES
         key = (case.n, case.id)
-        @test haskey(KALEYSKI_TABLE1_GENERATED_LUTS, key)
-        @test length(KALEYSKI_TABLE1_GENERATED_LUTS[key]) == 2^case.n
+        @test haskey(fixture(context, :luts), key)
+        @test length(fixture(context, :luts)[key]) == 2^case.n
     end
 end
 
 @testset "Kaleyski Table 1 implemented permutation counts" begin
-    for case in KALEYSKI_TABLE1_CASES
+    for case in KaleyskiExperiments.KALEYSKI_TABLE1_CASES
         @testset "n = $(case.n), ID $(case.id)" begin
-            lut = KALEYSKI_TABLE1_GENERATED_LUTS[(case.n, case.id)]
-            results = reconstruct_external_linear_maps(lut, lut, case.n)
+            context = kaleyski_table1_selected_context([case])
+            result = run_kaleyski_table1_experiment(context = context)
+            row = only(result.rows)
 
-            obtained = length(results)
-            expected = kaleyski_table1_expected_permutations(case.n, case.id)
-
-            @info "Kaleyski Table 1 regression case" n = case.n id = case.id obtained expected
-            @test obtained == expected
+            @info "Kaleyski Table 1 regression case" n = row.n id = row.id obtained = row.found expected = row.expected
+            @test row.ok
         end
     end
 end

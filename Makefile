@@ -16,7 +16,7 @@ experiment-tests: kaleyski-table1-tests linearly-self-equivalent-tests
 all-tests: tests experiment-tests
 
 kaleyski-table1-tests:
-	$(MAKE) -C experiments/kaleyski_table1 tests
+	$(MAKE) -C experiments/Deciding_EA_equivalence_via_invariants tests
 
 linearly-self-equivalent-tests:
 	$(MAKE) -C experiments/linearly_self_equivalent_apn_permutations tests

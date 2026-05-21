@@ -1,14 +1,7 @@
-# table1.jl
-# Julia Script
+using APNLib
 
-#=
-Description: 
-Author: tiago
-Date: 21/05/2026
-=#
+include(joinpath(@__DIR__, "KaleyskiExperiments.jl"))
+using .KaleyskiExperiments
 
-function main()
-    println("Hello, Julia!")
-end
-
-main()
+const TABLE1_CONTEXT = KALEYSKI_TABLE1_CONTEXT
+const TABLE1_PERMUTATION_COUNT = KALEYSKI_TABLE1_PERMUTATION_COUNT

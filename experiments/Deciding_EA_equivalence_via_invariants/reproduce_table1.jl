@@ -1,48 +1,13 @@
 using Nemo
 using APNLib
 
-include(joinpath(@__DIR__, "table1_data.jl"))
-include(joinpath(@__DIR__, "fixtures", "table1_luts.jl"))
-
-function env_log_level()
-    return Symbol(get(ENV, "APNLIB_LOG_LEVEL", "quiet"))
-end
-
-function env_parallel()
-    value = lowercase(get(ENV, "APNLIB_PARALLEL", "auto"))
-    value == "auto" && return Threads.nthreads() > 1
-    value in ("1", "true", "yes", "on") && return true
-    value in ("0", "false", "no", "off") && return false
-    error("APNLIB_PARALLEL must be auto, true, or false")
-end
+include(joinpath(@__DIR__, "KaleyskiExperiments.jl"))
+using .KaleyskiExperiments
 
 function run_kaleyski_table1_case(case)
-    obtained = 0
-    expected = kaleyski_table1_expected_permutations(case.n, case.id)
-    log_level = env_log_level()
-    parallel = env_parallel()
-
-    elapsed = @elapsed begin
-        lut = KALEYSKI_TABLE1_GENERATED_LUTS[(case.n, case.id)]
-        results = reconstruct_external_linear_maps(lut,
-                                                   lut,
-                                                   case.n,
-                                                   parallel = parallel,
-                                                   log_level = log_level)
-        obtained = length(results)
-    end
-
-    return (
-        n = case.n,
-        id = case.id,
-        equation = kaleyski_table1_equation_id(case.n, case.id),
-        time = elapsed,
-        found = obtained,
-        expected = expected,
-        parallel = parallel,
-        log_level = log_level,
-        ok = obtained == expected,
-    )
+    context = kaleyski_table1_selected_context([case])
+    result = run_kaleyski_table1_experiment(context = context)
+    return only(result.rows)
 end
 
 function print_markdown_table(rows)
@@ -86,7 +51,7 @@ function print_mismatch_summary(rows)
 end
 
 function selected_cases()
-    cases = KALEYSKI_TABLE1_CASES
+    cases = KaleyskiExperiments.KALEYSKI_TABLE1_CASES
 
     dimensions = get(ENV, "APNLIB_KALEYSKI_TABLE1_DIMENSIONS", "")
     if !isempty(dimensions)
@@ -105,18 +70,17 @@ end
 
 function main()
     cases = selected_cases()
-    @info "Running Kaleyski Table 1 cases" cases = length(cases) threads = Threads.nthreads() parallel = env_parallel() log_level = env_log_level()
+    context = kaleyski_table1_selected_context(cases)
+    @info "Running Kaleyski Table 1 cases" cases = length(cases) threads = Threads.nthreads()
     print_markdown_header()
 
-    rows = []
-    for (index, case) in pairs(cases)
-        @info "Starting Kaleyski Table 1 case" index total = length(cases) n = case.n id = case.id
-        row = run_kaleyski_table1_case(case)
-        push!(rows, row)
+    result = run_kaleyski_table1_experiment(context = context)
+    for (index, row) in pairs(result.rows)
+        @info "Finished Kaleyski Table 1 case" index total = length(result.rows) n = row.n id = row.id
         print_markdown_row(row)
     end
 
-    print_mismatch_summary(rows)
+    print_mismatch_summary(result.rows)
 end
 
 main()

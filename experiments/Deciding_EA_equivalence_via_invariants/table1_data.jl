@@ -12,7 +12,7 @@
 #}
 # Keep this file as the readable source of truth. The LUTs used by tests are
 # generated pointwise from these definitions by
-# experiments/kaleyski_table1/generate_luts.jl. In particular, reference(...) means
+# experiments/Deciding_EA_equivalence_via_invariants/generate_luts.jl. In particular, reference(...) means
 # "use the already generated LUT value for this input and add the perturbation".
 
 const KALEYSKI_TABLE1_EXPECTED = Dict{Tuple{Int, String}, Int}(

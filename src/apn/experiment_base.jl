@@ -8,7 +8,7 @@ end
 function ExperimentSpec(id::Symbol, compute::Function;
                         description::AbstractString = "",
                         columns = Symbol[])
-    return ExperimentSpec(id, String(description), collect(Symbol, columns), compute)
+    return ExperimentSpec(id, String(description), [Symbol(column) for column in columns], compute)
 end
 
 struct ExperimentContext

@@ -27,7 +27,7 @@ make tests
 From the repository root:
 
 ```bash
-make -C experiments/kaleyski_table1 tests
+make -C experiments/Deciding_EA_equivalence_via_invariants tests
 ```
 
 The tests check that the generated LUT fixture exists for every configured
